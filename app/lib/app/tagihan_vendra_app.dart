@@ -12,7 +12,7 @@ class TagihanVendraApp extends StatelessWidget {
       title: 'Tagihan Vendra',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       home: const AppShell(),
     );
   }

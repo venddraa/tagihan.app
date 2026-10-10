@@ -8,31 +8,23 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  static const _desktopBreakpoint = 720.0;
+  static const _desktopBreakpoint = 860.0;
 
   static const _destinations = [
     _AppDestination(
       label: 'Ringkasan',
-      icon: Icons.dashboard_outlined,
-      selectedIcon: Icons.dashboard,
       description: 'Pantau tagihan yang perlu diperhatikan.',
     ),
     _AppDestination(
       label: 'Tagihan',
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long,
       description: 'Kelola tagihan dan subscription pribadi.',
     ),
     _AppDestination(
       label: 'Pembayaran',
-      icon: Icons.payments_outlined,
-      selectedIcon: Icons.payments,
       description: 'Lihat dan catat riwayat pembayaran.',
     ),
     _AppDestination(
       label: 'Pengaturan',
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
       description: 'Atur preferensi aplikasi.',
     ),
   ];
@@ -50,7 +42,7 @@ class _AppShellState extends State<AppShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < _desktopBreakpoint) {
-          return _MobileShell(
+          return _CompactShell(
             destination: destination,
             destinations: _destinations,
             selectedIndex: _selectedIndex,
@@ -86,34 +78,33 @@ class _DesktopShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Row(
+        child: Column(
           children: [
-            NavigationRail(
-              extended: true,
-              minExtendedWidth: 224,
-              groupAlignment: -1,
-              leading: const Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 28),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Tagihan Vendra',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            SizedBox(
+              key: const ValueKey('desktop-header'),
+              width: double.infinity,
+              height: 76,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Positioned(left: 32, child: _Brand()),
+                  Row(
+                    key: const ValueKey('desktop-navigation'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var index = 0; index < destinations.length; index++)
+                        _TopNavigationItem(
+                          key: ValueKey('desktop-destination-$index'),
+                          label: destinations[index].label,
+                          selected: selectedIndex == index,
+                          onTap: () => onDestinationSelected(index),
+                        ),
+                    ],
                   ),
-                ),
+                ],
               ),
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              destinations: [
-                for (final destination in destinations)
-                  NavigationRailDestination(
-                    icon: Icon(destination.icon),
-                    selectedIcon: Icon(destination.selectedIcon),
-                    label: Text(destination.label),
-                  ),
-              ],
             ),
-            const VerticalDivider(width: 1),
+            const Divider(height: 1),
             Expanded(child: _DestinationContent(destination: destination)),
           ],
         ),
@@ -122,8 +113,8 @@ class _DesktopShell extends StatelessWidget {
   }
 }
 
-class _MobileShell extends StatelessWidget {
-  const _MobileShell({
+class _CompactShell extends StatelessWidget {
+  const _CompactShell({
     required this.destination,
     required this.destinations,
     required this.selectedIndex,
@@ -138,35 +129,188 @@ class _MobileShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tagihan Vendra')),
-      body: _DestinationContent(destination: destination),
-      bottomNavigationBar: NavigationBar(
+      appBar: AppBar(title: const _Brand()),
+      body: _DestinationContent(destination: destination, compact: true),
+      bottomNavigationBar: _BottomNavigation(
+        destinations: destinations,
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        destinations: [
-          for (final destination in destinations)
-            NavigationDestination(
-              icon: Icon(destination.icon),
-              selectedIcon: Icon(destination.selectedIcon),
-              label: destination.label,
+      ),
+    );
+  }
+}
+
+class _Brand extends StatelessWidget {
+  const _Brand();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'Tagihan Vendra',
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _TopNavigationItem extends StatelessWidget {
+  const _TopNavigationItem({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: selected ? colorScheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
             ),
-        ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavigation extends StatelessWidget {
+  const _BottomNavigation({
+    required this.destinations,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  final List<_AppDestination> destinations;
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      key: const ValueKey('compact-navigation'),
+      color: colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+          ),
+          child: Row(
+            children: [
+              for (var index = 0; index < destinations.length; index++)
+                Expanded(
+                  child: _BottomNavigationItem(
+                    key: ValueKey('compact-destination-$index'),
+                    label: destinations[index].label,
+                    selected: selectedIndex == index,
+                    onTap: () => onDestinationSelected(index),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavigationItem extends StatelessWidget {
+  const _BottomNavigationItem({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: selected ? 28 : 0,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: selected
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _DestinationContent extends StatelessWidget {
-  const _DestinationContent({required this.destination});
+  const _DestinationContent({required this.destination, this.compact = false});
 
   final _AppDestination destination;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(compact ? 24 : 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -185,15 +329,8 @@ class _DestinationContent extends StatelessWidget {
 }
 
 class _AppDestination {
-  const _AppDestination({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-    required this.description,
-  });
+  const _AppDestination({required this.label, required this.description});
 
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
   final String description;
 }
