@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/app/app_shell.dart';
+import 'package:tagihan_vendra/app/app_theme.dart';
 
 class TagihanVendraApp extends StatelessWidget {
   const TagihanVendraApp({super.key});
@@ -8,20 +10,10 @@ class TagihanVendraApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Tagihan Vendra',
-      theme: ThemeData(useMaterial3: true),
-      home: const _HomePage(),
-    );
-  }
-}
-
-class _HomePage extends StatelessWidget {
-  const _HomePage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tagihan Vendra')),
-      body: const Center(child: Text('Aplikasi monitoring tagihan pribadi.')),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
+      home: const AppShell(),
     );
   }
 }
