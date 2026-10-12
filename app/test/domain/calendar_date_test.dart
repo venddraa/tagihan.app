@@ -28,5 +28,11 @@ void main() {
       expect(earlier.isBefore(later), isTrue);
       expect(later.isAfter(earlier), isTrue);
     });
+
+    test('parse hanya menerima format database YYYY-MM-DD', () {
+      expect(CalendarDate.parse('2026-10-18'), CalendarDate(2026, 10, 18));
+      expect(() => CalendarDate.parse('18-10-2026'), throwsFormatException);
+      expect(() => CalendarDate.parse('2026-02-29'), throwsArgumentError);
+    });
   });
 }

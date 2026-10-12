@@ -25,6 +25,22 @@ final class CalendarDate implements Comparable<CalendarDate> {
     return CalendarDate(dateTime.year, dateTime.month, dateTime.day);
   }
 
+  factory CalendarDate.parse(String value) {
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+    if (match == null) {
+      throw FormatException(
+        'Tanggal harus menggunakan format YYYY-MM-DD.',
+        value,
+      );
+    }
+
+    return CalendarDate(
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(3)!),
+    );
+  }
+
   DateTime toUtcDateTime() => DateTime.utc(year, month, day);
 
   bool isBefore(CalendarDate other) => compareTo(other) < 0;
