@@ -94,6 +94,66 @@ final class AppDatabase extends _$AppDatabase {
 
     return rows.map(_billFromRow).toList(growable: false);
   }
+
+  Stream<List<Bill>> watchActiveBills() {
+    final query = select(bills)
+      ..where(
+        (table) => table.status.equals('active') & table.deletedAtMs.isNull(),
+      )
+      ..orderBy([
+        (table) => OrderingTerm.asc(table.nextDueDate),
+        (table) => OrderingTerm.asc(table.name),
+      ]);
+
+    return query.watch().map(
+      (rows) => rows.map(_billFromRow).toList(growable: false),
+    );
+  }
+
+  Future<void> updateBill(Bill bill) async {
+    final updatedRows =
+        await (update(bills)..where((table) => table.id.equals(bill.id.value)))
+            .write(_billToCompanion(bill));
+
+    if (updatedRows != 1) {
+      throw StateError('Tagihan yang akan diperbarui tidak ditemukan.');
+    }
+  }
+
+  Future<void> archiveBill(EntityId id, DateTime archivedAt) async {
+    if (!archivedAt.isUtc) {
+      throw ArgumentError.value(
+        archivedAt,
+        'archivedAt',
+        'Waktu archive harus menggunakan UTC.',
+      );
+    }
+
+    await transaction(() async {
+      final current = await findBillById(id);
+      if (current == null || current.isDeleted) {
+        throw StateError('Tagihan yang akan diarsipkan tidak ditemukan.');
+      }
+
+      final archived = Bill(
+        id: current.id,
+        name: current.name,
+        category: current.category,
+        amount: current.amount,
+        billingCycle: current.billingCycle,
+        nextDueDate: current.nextDueDate,
+        startDate: current.startDate,
+        status: BillStatus.archived,
+        notes: current.notes,
+        createdAt: current.createdAt,
+        updatedAt: archivedAt,
+        deletedAt: current.deletedAt,
+        version: current.version + 1,
+      );
+
+      await updateBill(archived);
+    });
+  }
 }
 
 BillsCompanion _billToCompanion(Bill bill) {

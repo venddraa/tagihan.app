@@ -157,6 +157,75 @@ void main() {
     expect(stored!.isDeleted, isTrue);
     expect(stored.deletedAt, deletedAt);
   });
+
+  test('memperbarui detail tagihan berdasarkan ID', () async {
+    final source = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+    );
+    await database.insertBill(source);
+    final updatedAt = DateTime.utc(2026, 10, 12);
+    final updated = Bill(
+      id: source.id,
+      name: 'Spotify Premium',
+      category: source.category,
+      amount: Money(minorUnits: 64990, currency: Currency.idr),
+      billingCycle: source.billingCycle,
+      nextDueDate: source.nextDueDate,
+      startDate: source.startDate,
+      status: source.status,
+      notes: source.notes,
+      createdAt: source.createdAt,
+      updatedAt: updatedAt,
+      version: 2,
+    );
+
+    await database.updateBill(updated);
+    final stored = await database.findBillById(source.id);
+
+    expect(stored!.name, 'Spotify Premium');
+    expect(stored.amount.minorUnits, 64990);
+    expect(stored.updatedAt, updatedAt);
+    expect(stored.version, 2);
+  });
+
+  test(
+    'archive menaikkan version dan menghapus tagihan dari daftar aktif',
+    () async {
+      final source = _bill(
+        id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+        name: 'Spotify',
+      );
+      await database.insertBill(source);
+      final archivedAt = DateTime.utc(2026, 10, 12);
+
+      await database.archiveBill(source.id, archivedAt);
+      final stored = await database.findBillById(source.id);
+
+      expect(stored!.status, BillStatus.archived);
+      expect(stored.updatedAt, archivedAt);
+      expect(stored.version, 2);
+      expect(await database.getActiveBills(), isEmpty);
+    },
+  );
+
+  test('stream daftar aktif mengikuti perubahan database', () async {
+    final states = <List<Bill>>[];
+    final subscription = database.watchActiveBills().listen(states.add);
+    addTearDown(subscription.cancel);
+    await Future<void>.delayed(Duration.zero);
+
+    final source = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+    );
+    await database.insertBill(source);
+    await Future<void>.delayed(Duration.zero);
+    await database.archiveBill(source.id, DateTime.utc(2026, 10, 12));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(states.map((state) => state.length), containsAllInOrder([0, 1, 0]));
+  });
 }
 
 Bill _bill({

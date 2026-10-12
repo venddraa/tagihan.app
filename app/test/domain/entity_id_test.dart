@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 
@@ -24,6 +26,20 @@ void main() {
 
       expect(first, second);
       expect(first.hashCode, second.hashCode);
+    });
+
+    test('membuat UUIDv7 dari waktu dan random client', () {
+      final now = DateTime.utc(2026, 10, 12, 9, 30);
+      final first = EntityId.generate(now: now, random: Random(1));
+      final second = EntityId.generate(now: now, random: Random(2));
+      final timestampHex = now.millisecondsSinceEpoch
+          .toRadixString(16)
+          .padLeft(12, '0');
+
+      expect(first.value.replaceAll('-', '').startsWith(timestampHex), isTrue);
+      expect(first.value.substring(14, 15), '7');
+      expect('89ab', contains(first.value.substring(19, 20)));
+      expect(first, isNot(second));
     });
   });
 }

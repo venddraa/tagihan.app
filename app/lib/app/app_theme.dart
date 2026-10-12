@@ -43,6 +43,20 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: DividerThemeData(color: colorScheme.outlineVariant),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: brightness == Brightness.dark
+            ? const Color(0xFF20191B)
+            : const Color(0xFFF4EEEE),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+      ),
     );
   }
 }

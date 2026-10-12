@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/data/local/app_database.dart';
+import 'package:tagihan_vendra/features/bills/bill_list_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.database});
+
+  final AppDatabase database;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -43,6 +47,7 @@ class _AppShellState extends State<AppShell> {
       builder: (context, constraints) {
         if (constraints.maxWidth < _desktopBreakpoint) {
           return _CompactShell(
+            database: widget.database,
             destination: destination,
             destinations: _destinations,
             selectedIndex: _selectedIndex,
@@ -51,6 +56,7 @@ class _AppShellState extends State<AppShell> {
         }
 
         return _DesktopShell(
+          database: widget.database,
           destination: destination,
           destinations: _destinations,
           selectedIndex: _selectedIndex,
@@ -63,12 +69,14 @@ class _AppShellState extends State<AppShell> {
 
 class _DesktopShell extends StatelessWidget {
   const _DesktopShell({
+    required this.database,
     required this.destination,
     required this.destinations,
     required this.selectedIndex,
     required this.onDestinationSelected,
   });
 
+  final AppDatabase database;
   final _AppDestination destination;
   final List<_AppDestination> destinations;
   final int selectedIndex;
@@ -105,7 +113,13 @@ class _DesktopShell extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            Expanded(child: _DestinationContent(destination: destination)),
+            Expanded(
+              child: _DestinationContent(
+                database: database,
+                destination: destination,
+                selectedIndex: selectedIndex,
+              ),
+            ),
           ],
         ),
       ),
@@ -115,12 +129,14 @@ class _DesktopShell extends StatelessWidget {
 
 class _CompactShell extends StatelessWidget {
   const _CompactShell({
+    required this.database,
     required this.destination,
     required this.destinations,
     required this.selectedIndex,
     required this.onDestinationSelected,
   });
 
+  final AppDatabase database;
   final _AppDestination destination;
   final List<_AppDestination> destinations;
   final int selectedIndex;
@@ -130,7 +146,12 @@ class _CompactShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const _Brand()),
-      body: _DestinationContent(destination: destination, compact: true),
+      body: _DestinationContent(
+        database: database,
+        destination: destination,
+        selectedIndex: selectedIndex,
+        compact: true,
+      ),
       bottomNavigationBar: _BottomNavigation(
         destinations: destinations,
         selectedIndex: selectedIndex,
@@ -300,13 +321,24 @@ class _BottomNavigationItem extends StatelessWidget {
 }
 
 class _DestinationContent extends StatelessWidget {
-  const _DestinationContent({required this.destination, this.compact = false});
+  const _DestinationContent({
+    required this.database,
+    required this.destination,
+    required this.selectedIndex,
+    this.compact = false,
+  });
 
+  final AppDatabase database;
   final _AppDestination destination;
+  final int selectedIndex;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (selectedIndex == 1) {
+      return BillListPage(database: database, compact: compact);
+    }
+
     final textTheme = Theme.of(context).textTheme;
 
     return Padding(

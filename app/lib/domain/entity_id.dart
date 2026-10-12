@@ -1,3 +1,5 @@
+import 'dart:math';
+
 final class EntityId {
   EntityId._(this.value);
 
@@ -7,6 +9,34 @@ final class EntityId {
   );
 
   final String value;
+
+  factory EntityId.generate({DateTime? now, Random? random}) {
+    final timestamp = (now ?? DateTime.now()).toUtc().millisecondsSinceEpoch;
+    if (timestamp < 0 || timestamp > 0xffffffffffff) {
+      throw RangeError.range(timestamp, 0, 0xffffffffffff, 'timestamp');
+    }
+
+    final secureRandom = random ?? Random.secure();
+    final bytes = List<int>.generate(16, (_) => secureRandom.nextInt(256));
+
+    for (var index = 5; index >= 0; index--) {
+      bytes[index] = (timestamp >> ((5 - index) * 8)) & 0xff;
+    }
+
+    bytes[6] = (bytes[6] & 0x0f) | 0x70;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    final hex = bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return EntityId.fromString(
+      '${hex.substring(0, 8)}-'
+      '${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-'
+      '${hex.substring(16, 20)}-'
+      '${hex.substring(20)}',
+    );
+  }
 
   factory EntityId.fromString(String value) {
     if (!_uuidV7Pattern.hasMatch(value)) {
