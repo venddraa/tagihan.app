@@ -112,7 +112,7 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
         version: 1,
       );
 
-      await widget.database.insertPayment(payment);
+      await widget.database.recordPayment(payment);
       if (mounted) Navigator.of(context).pop(true);
     } on Object catch (error) {
       debugPrint('Gagal mencatat pembayaran: ${error.runtimeType}');

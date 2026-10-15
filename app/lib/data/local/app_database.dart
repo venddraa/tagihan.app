@@ -2,6 +2,7 @@
 
 import 'package:drift/drift.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
+import 'package:tagihan_vendra/domain/billing_schedule.dart';
 import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/money.dart';
@@ -161,6 +162,23 @@ final class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<List<Bill>> getOverdueBills(CalendarDate today) async {
+    final activeBills = await getActiveBills();
+    return activeBills
+        .where((bill) => isBillOverdue(bill, today))
+        .toList(growable: false);
+  }
+
+  Future<List<Bill>> getUpcomingBills(
+    CalendarDate today, {
+    int withinDays = 30,
+  }) async {
+    final activeBills = await getActiveBills();
+    return activeBills
+        .where((bill) => isBillUpcoming(bill, today, withinDays: withinDays))
+        .toList(growable: false);
+  }
+
   Future<void> updateBill(Bill bill) async {
     final updatedRows =
         await (update(bills)..where((table) => table.id.equals(bill.id.value)))
@@ -208,6 +226,44 @@ final class AppDatabase extends _$AppDatabase {
 
   Future<void> insertPayment(Payment payment) async {
     await into(payments).insert(_paymentToCompanion(payment));
+  }
+
+  Future<void> recordPayment(Payment payment) async {
+    await transaction(() async {
+      final bill = await findBillById(payment.billId);
+      if (bill == null || bill.isDeleted) {
+        throw StateError('Tagihan untuk pembayaran tidak ditemukan.');
+      }
+      if (payment.amount.currency != bill.amount.currency) {
+        throw ArgumentError(
+          'Currency pembayaran harus sama dengan currency tagihan.',
+        );
+      }
+
+      await insertPayment(payment);
+      if (!bill.isActive || payment.dueDate != bill.nextDueDate) return;
+
+      final nextDueDate = calculateNextDueDate(bill);
+      final changedAt = payment.createdAt.isAfter(bill.updatedAt)
+          ? payment.createdAt
+          : bill.updatedAt;
+      final updatedBill = Bill(
+        id: bill.id,
+        name: bill.name,
+        category: bill.category,
+        amount: bill.amount,
+        billingCycle: bill.billingCycle,
+        nextDueDate: nextDueDate ?? bill.nextDueDate,
+        startDate: bill.startDate,
+        status: nextDueDate == null ? BillStatus.archived : bill.status,
+        notes: bill.notes,
+        createdAt: bill.createdAt,
+        updatedAt: changedAt,
+        deletedAt: bill.deletedAt,
+        version: bill.version + 1,
+      );
+      await updateBill(updatedBill);
+    });
   }
 
   Future<Payment?> findPaymentById(EntityId id) async {

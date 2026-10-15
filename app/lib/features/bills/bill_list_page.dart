@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
+import 'package:tagihan_vendra/domain/billing_schedule.dart';
+import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/features/bills/bill_form_dialog.dart';
 
 class BillListPage extends StatelessWidget {
@@ -186,6 +188,14 @@ class _BillListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final today = CalendarDate.fromDateTime(DateTime.now());
+    final overdue = isBillOverdue(bill, today);
+    final upcoming = isBillUpcoming(bill, today, withinDays: 7);
+    final timingLabel = overdue
+        ? 'Terlambat'
+        : upcoming
+        ? 'Segera'
+        : null;
 
     return InkWell(
       key: ValueKey('bill-${bill.id.value}'),
@@ -222,8 +232,26 @@ class _BillListItem extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 5),
-                  Text(
-                    '${formatBillingCycle(bill.billingCycle)} · Jatuh tempo ${formatCalendarDate(bill.nextDueDate)}',
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        if (timingLabel != null) ...[
+                          TextSpan(
+                            text: '$timingLabel · ',
+                            style: TextStyle(
+                              color: overdue
+                                  ? colorScheme.error
+                                  : colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        TextSpan(
+                          text:
+                              '${formatBillingCycle(bill.billingCycle)} · Jatuh tempo ${formatCalendarDate(bill.nextDueDate)}',
+                        ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: colorScheme.onSurfaceVariant),

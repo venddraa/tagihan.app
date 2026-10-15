@@ -129,7 +129,7 @@ void main() {
         amount: Money(minorUnits: 59990, currency: Currency.idr),
         billingCycle: BillingCycle.monthly,
         nextDueDate: CalendarDate(now.year, now.month, 25),
-        startDate: CalendarDate(now.year, now.month, 1),
+        startDate: CalendarDate(now.year, now.month, 25),
         status: BillStatus.active,
         createdAt: now,
         updatedAt: now,
@@ -164,6 +164,15 @@ void main() {
     await tester.tap(find.text('Spotify'));
     await tester.pumpAndSettle();
     expect(find.text('Dibayar pada'), findsOneWidget);
+
+    final updatedBill = await database.findBillById(
+      EntityId.fromString('01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0'),
+    );
+    expect(
+      updatedBill!.nextDueDate,
+      isNot(CalendarDate(now.year, now.month, 25)),
+    );
+    expect(updatedBill.version, 2);
 
     await _disposeApp(tester);
   });

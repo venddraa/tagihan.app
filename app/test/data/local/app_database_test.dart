@@ -310,6 +310,137 @@ void main() {
     expect(history.map((entry) => entry.payment.id), [newer.id, older.id]);
     expect(history.map((entry) => entry.billName), ['Spotify', 'Spotify']);
   });
+
+  test('record payment memajukan tagihan monthly secara atomik', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+      nextDueDate: CalendarDate(2026, 10, 25),
+    );
+    await database.insertBill(bill);
+    final payment = _payment(
+      id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+      billId: bill.id,
+      dueDate: bill.nextDueDate,
+      paidAt: DateTime.utc(2026, 10, 15),
+    );
+
+    await database.recordPayment(payment);
+    final updatedBill = await database.findBillById(bill.id);
+
+    expect(updatedBill!.nextDueDate, CalendarDate(2026, 11, 25));
+    expect(updatedBill.version, 2);
+    expect((await database.getPaymentHistory()).single.payment, isNotNull);
+  });
+
+  test('payment historis tidak mengubah jatuh tempo aktif', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+      nextDueDate: CalendarDate(2026, 10, 25),
+    );
+    await database.insertBill(bill);
+    await database.recordPayment(
+      _payment(
+        id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+        billId: bill.id,
+        dueDate: CalendarDate(2026, 9, 25),
+        paidAt: DateTime.utc(2026, 9, 15),
+      ),
+    );
+
+    final unchangedBill = await database.findBillById(bill.id);
+    expect(unchangedBill!.nextDueDate, bill.nextDueDate);
+    expect(unchangedBill.version, 1);
+  });
+
+  test('payment one-time mengarsipkan tagihan', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Lisensi sekali beli',
+      billingCycle: BillingCycle.oneTime,
+    );
+    await database.insertBill(bill);
+    await database.recordPayment(
+      _payment(
+        id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+        billId: bill.id,
+        dueDate: bill.nextDueDate,
+        paidAt: DateTime.utc(2026, 10, 15),
+      ),
+    );
+
+    final archived = await database.findBillById(bill.id);
+    expect(archived!.status, BillStatus.archived);
+    expect(archived.version, 2);
+    expect(await database.getActiveBills(), isEmpty);
+  });
+
+  test('payment duplicate tidak memajukan jatuh tempo dua kali', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+    );
+    final payment = _payment(
+      id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+      billId: bill.id,
+      dueDate: bill.nextDueDate,
+      paidAt: DateTime.utc(2026, 10, 15),
+    );
+    await database.insertBill(bill);
+    await database.recordPayment(payment);
+
+    await expectLater(
+      database.recordPayment(payment),
+      throwsA(isA<Exception>()),
+    );
+    final stored = await database.findBillById(bill.id);
+    expect(stored!.nextDueDate, CalendarDate(2026, 11, 25));
+    expect(stored.version, 2);
+    expect((await database.getPaymentHistory()).length, 1);
+  });
+
+  test(
+    'query overdue dan upcoming hanya mengembalikan tagihan aktif',
+    () async {
+      final overdue = _bill(
+        id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+        name: 'Terlambat',
+        nextDueDate: CalendarDate(2026, 10, 14),
+      );
+      final dueToday = _bill(
+        id: '01890f47-3d7a-7c54-8b3c-9d6ec2f1a6b1',
+        name: 'Hari ini',
+        nextDueDate: CalendarDate(2026, 10, 15),
+      );
+      final outsideWindow = _bill(
+        id: '01890f47-3d7a-7c55-9b3c-9d6ec2f1a6b2',
+        name: 'Nanti',
+        nextDueDate: CalendarDate(2026, 10, 23),
+      );
+      final paused = _bill(
+        id: '01890f47-3d7a-7c56-ab3c-9d6ec2f1a6b3',
+        name: 'Paused',
+        nextDueDate: CalendarDate(2026, 10, 14),
+        status: BillStatus.paused,
+      );
+      for (final bill in [overdue, dueToday, outsideWindow, paused]) {
+        await database.insertBill(bill);
+      }
+      final today = CalendarDate(2026, 10, 15);
+
+      expect((await database.getOverdueBills(today)).map((bill) => bill.name), [
+        'Terlambat',
+      ]);
+      expect(
+        (await database.getUpcomingBills(
+          today,
+          withinDays: 7,
+        )).map((bill) => bill.name),
+        ['Hari ini'],
+      );
+    },
+  );
 }
 
 Bill _bill({
@@ -365,6 +496,7 @@ Payment _payment({
   required String id,
   required EntityId billId,
   required DateTime paidAt,
+  CalendarDate? dueDate,
   String? notes,
   DateTime? updatedAt,
   DateTime? deletedAt,
@@ -374,7 +506,7 @@ Payment _payment({
     id: EntityId.fromString(id),
     billId: billId,
     amount: Money(minorUnits: 59990, currency: Currency.idr),
-    dueDate: CalendarDate(paidAt.year, paidAt.month, 25),
+    dueDate: dueDate ?? CalendarDate(paidAt.year, paidAt.month, 25),
     paidAt: paidAt,
     notes: notes,
     createdAt: createdAt,
