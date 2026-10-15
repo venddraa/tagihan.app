@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tagihan_vendra/app/tagihan_vendra_app.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
+import 'package:tagihan_vendra/domain/bill.dart';
+import 'package:tagihan_vendra/domain/calendar_date.dart';
+import 'package:tagihan_vendra/domain/entity_id.dart';
+import 'package:tagihan_vendra/domain/money.dart';
 
 void main() {
   late AppDatabase database;
@@ -57,7 +61,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('compact-destination-2')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Lihat dan catat riwayat pembayaran.'), findsOneWidget);
+    expect(find.text('Catat dan lihat riwayat pembayaran.'), findsOneWidget);
 
     await _disposeApp(tester);
   });
@@ -112,6 +116,54 @@ void main() {
     expect(find.text('Belum ada tagihan'), findsOneWidget);
     final stored = await database.getActiveBills();
     expect(stored, isEmpty);
+
+    await _disposeApp(tester);
+  });
+
+  testWidgets('mencatat dan melihat riwayat pembayaran', (tester) async {
+    final now = DateTime.now().toUtc();
+    await database.insertBill(
+      Bill(
+        id: EntityId.fromString('01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0'),
+        name: 'Spotify',
+        amount: Money(minorUnits: 59990, currency: Currency.idr),
+        billingCycle: BillingCycle.monthly,
+        nextDueDate: CalendarDate(now.year, now.month, 25),
+        startDate: CalendarDate(now.year, now.month, 1),
+        status: BillStatus.active,
+        createdAt: now,
+        updatedAt: now,
+        version: 1,
+      ),
+    );
+    await _setScreenSize(tester, const Size(1200, 900));
+    await tester.pumpWidget(TagihanVendraApp(database: database));
+
+    await tester.tap(find.byKey(const ValueKey('desktop-destination-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('Belum ada pembayaran'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('record-payment-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('payment-bill-field')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('payment-amount-field')),
+          )
+          .controller!
+          .text,
+      '59990',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-payment-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('payment-list')), findsOneWidget);
+    expect(find.text('Spotify'), findsOneWidget);
+    expect(find.text('Rp59.990'), findsOneWidget);
+    await tester.tap(find.text('Spotify'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dibayar pada'), findsOneWidget);
 
     await _disposeApp(tester);
   });

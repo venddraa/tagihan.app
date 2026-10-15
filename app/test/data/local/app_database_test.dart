@@ -5,6 +5,7 @@ import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/money.dart';
+import 'package:tagihan_vendra/domain/payment.dart';
 
 void main() {
   late AppDatabase database;
@@ -17,18 +18,29 @@ void main() {
     await database.close();
   });
 
-  test('membuat schema version 1 beserta index', () async {
-    final indexes = await database
+  test('membuat schema version 2 beserta index', () async {
+    final billIndexes = await database
         .customSelect("PRAGMA index_list('bills')")
         .get();
-    final indexNames = indexes.map((row) => row.read<String>('name')).toSet();
+    final paymentIndexes = await database
+        .customSelect("PRAGMA index_list('payments')")
+        .get();
+    final billIndexNames = billIndexes
+        .map((row) => row.read<String>('name'))
+        .toSet();
+    final paymentIndexNames = paymentIndexes
+        .map((row) => row.read<String>('name'))
+        .toSet();
     final foreignKeys = await database
         .customSelect('PRAGMA foreign_keys')
         .getSingle();
 
-    expect(database.schemaVersion, 1);
-    expect(indexNames, contains('bills_status_next_due_date'));
-    expect(indexNames, contains('bills_deleted_at_ms'));
+    expect(database.schemaVersion, 2);
+    expect(billIndexNames, contains('bills_status_next_due_date'));
+    expect(billIndexNames, contains('bills_deleted_at_ms'));
+    expect(paymentIndexNames, contains('payments_bill_id_due_date'));
+    expect(paymentIndexNames, contains('payments_paid_at_ms'));
+    expect(paymentIndexNames, contains('payments_deleted_at_ms'));
     expect(foreignKeys.read<int>('foreign_keys'), 1);
   });
 
@@ -226,6 +238,78 @@ void main() {
 
     expect(states.map((state) => state.length), containsAllInOrder([0, 1, 0]));
   });
+
+  test('menyimpan dan membaca payment sebagai record terpisah', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+    );
+    final payment = _payment(
+      id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+      billId: bill.id,
+      paidAt: DateTime.utc(2026, 10, 15, 9, 30),
+      notes: 'Dibayar lebih awal',
+    );
+    await database.insertBill(bill);
+
+    await database.insertPayment(payment);
+    final stored = await database.findPaymentById(payment.id);
+
+    expect(stored, isNotNull);
+    expect(stored!.billId, bill.id);
+    expect(stored.amount, payment.amount);
+    expect(stored.dueDate, payment.dueDate);
+    expect(stored.paidAt, payment.paidAt);
+    expect(stored.notes, payment.notes);
+    expect(stored.version, 1);
+  });
+
+  test('foreign key menolak payment untuk tagihan yang tidak ada', () async {
+    final payment = _payment(
+      id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+      billId: EntityId.fromString('01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0'),
+      paidAt: DateTime.utc(2026, 10, 15),
+    );
+
+    await expectLater(
+      database.insertPayment(payment),
+      throwsA(isA<Exception>()),
+    );
+  });
+
+  test('riwayat payment terurut terbaru dan mengabaikan tombstone', () async {
+    final bill = _bill(
+      id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+      name: 'Spotify',
+    );
+    await database.insertBill(bill);
+    final older = _payment(
+      id: '01890f47-3d7a-7a41-8585-2ec0a6634f2a',
+      billId: bill.id,
+      paidAt: DateTime.utc(2026, 9, 15),
+    );
+    final newer = _payment(
+      id: '01890f47-3d7a-7a42-9585-2ec0a6634f2b',
+      billId: bill.id,
+      paidAt: DateTime.utc(2026, 10, 15),
+    );
+    final deletedAt = DateTime.utc(2026, 10, 16);
+    final deleted = _payment(
+      id: '01890f47-3d7a-7a43-a585-2ec0a6634f2c',
+      billId: bill.id,
+      paidAt: DateTime.utc(2026, 8, 15),
+      updatedAt: deletedAt,
+      deletedAt: deletedAt,
+    );
+
+    await database.insertPayment(older);
+    await database.insertPayment(deleted);
+    await database.insertPayment(newer);
+    final history = await database.getPaymentHistory();
+
+    expect(history.map((entry) => entry.payment.id), [newer.id, older.id]);
+    expect(history.map((entry) => entry.billName), ['Spotify', 'Spotify']);
+  });
 }
 
 Bill _bill({
@@ -274,5 +358,28 @@ BillsCompanion _rawBill({
     createdAtMs: DateTime.utc(2026, 10, 1).millisecondsSinceEpoch,
     updatedAtMs: DateTime.utc(2026, 10, 1).millisecondsSinceEpoch,
     version: version,
+  );
+}
+
+Payment _payment({
+  required String id,
+  required EntityId billId,
+  required DateTime paidAt,
+  String? notes,
+  DateTime? updatedAt,
+  DateTime? deletedAt,
+}) {
+  final createdAt = DateTime.utc(2026, 8, 1);
+  return Payment(
+    id: EntityId.fromString(id),
+    billId: billId,
+    amount: Money(minorUnits: 59990, currency: Currency.idr),
+    dueDate: CalendarDate(paidAt.year, paidAt.month, 25),
+    paidAt: paidAt,
+    notes: notes,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? createdAt,
+    deletedAt: deletedAt,
+    version: 1,
   );
 }

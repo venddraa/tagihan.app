@@ -5,6 +5,9 @@ import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/money.dart';
+import 'package:tagihan_vendra/domain/payment.dart';
+
+import 'app_database.steps.dart';
 
 part 'app_database.g.dart';
 
@@ -52,16 +55,64 @@ class Bills extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Bills])
+@DataClassName('PaymentRow')
+@TableIndex(name: 'payments_bill_id_due_date', columns: {#billId, #dueDate})
+@TableIndex(name: 'payments_paid_at_ms', columns: {#paidAtMs})
+@TableIndex(name: 'payments_deleted_at_ms', columns: {#deletedAtMs})
+class Payments extends Table {
+  TextColumn get id => text()();
+
+  TextColumn get billId => text().references(Bills, #id)();
+
+  IntColumn get amountMinorUnits =>
+      integer().check(amountMinorUnits.isBiggerOrEqualValue(0))();
+
+  TextColumn get currency =>
+      text().check(currency.isIn(const ['IDR', 'USD', 'EUR']))();
+
+  TextColumn get dueDate => text()();
+
+  IntColumn get paidAtMs => integer()();
+
+  TextColumn get notes => text().nullable()();
+
+  IntColumn get createdAtMs => integer()();
+
+  IntColumn get updatedAtMs => integer()();
+
+  IntColumn get deletedAtMs => integer().nullable()();
+
+  IntColumn get version => integer().check(version.isBiggerOrEqualValue(1))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+final class PaymentHistoryEntry {
+  const PaymentHistoryEntry({required this.payment, required this.billName});
+
+  final Payment payment;
+  final String billName;
+}
+
+@DriftDatabase(tables: [Bills, Payments])
 final class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: stepByStep(
+      from1To2: (migrator, schema) async {
+        await migrator.createTable(schema.payments);
+        await migrator.createIndex(schema.paymentsBillIdDueDate);
+        await migrator.createIndex(schema.paymentsPaidAtMs);
+        await migrator.createIndex(schema.paymentsDeletedAtMs);
+      },
+    ),
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
@@ -154,6 +205,47 @@ final class AppDatabase extends _$AppDatabase {
       await updateBill(archived);
     });
   }
+
+  Future<void> insertPayment(Payment payment) async {
+    await into(payments).insert(_paymentToCompanion(payment));
+  }
+
+  Future<Payment?> findPaymentById(EntityId id) async {
+    final row = await (select(
+      payments,
+    )..where((table) => table.id.equals(id.value))).getSingleOrNull();
+
+    return row == null ? null : _paymentFromRow(row);
+  }
+
+  Future<List<PaymentHistoryEntry>> getPaymentHistory() async {
+    return _paymentHistoryQuery().get().then(_paymentHistoryFromRows);
+  }
+
+  Stream<List<PaymentHistoryEntry>> watchPaymentHistory() {
+    return _paymentHistoryQuery().watch().map(_paymentHistoryFromRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _paymentHistoryQuery() {
+    return (select(payments)
+        .join([innerJoin(bills, bills.id.equalsExp(payments.billId))])
+      ..where(payments.deletedAtMs.isNull())
+      ..orderBy([
+        OrderingTerm.desc(payments.paidAtMs),
+        OrderingTerm.desc(payments.createdAtMs),
+      ]));
+  }
+
+  List<PaymentHistoryEntry> _paymentHistoryFromRows(List<TypedResult> rows) {
+    return rows
+        .map(
+          (row) => PaymentHistoryEntry(
+            payment: _paymentFromRow(row.readTable(payments)),
+            billName: row.readTable(bills).name,
+          ),
+        )
+        .toList(growable: false);
+  }
 }
 
 BillsCompanion _billToCompanion(Bill bill) {
@@ -188,6 +280,48 @@ Bill _billFromRow(BillRow row) {
     nextDueDate: CalendarDate.parse(row.nextDueDate),
     startDate: CalendarDate.parse(row.startDate),
     status: BillStatus.values.byName(row.status),
+    notes: row.notes,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      row.createdAtMs,
+      isUtc: true,
+    ),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      row.updatedAtMs,
+      isUtc: true,
+    ),
+    deletedAt: row.deletedAtMs == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(row.deletedAtMs!, isUtc: true),
+    version: row.version,
+  );
+}
+
+PaymentsCompanion _paymentToCompanion(Payment payment) {
+  return PaymentsCompanion.insert(
+    id: payment.id.value,
+    billId: payment.billId.value,
+    amountMinorUnits: payment.amount.minorUnits,
+    currency: payment.amount.currency.code,
+    dueDate: payment.dueDate.toString(),
+    paidAtMs: payment.paidAt.millisecondsSinceEpoch,
+    notes: Value(payment.notes),
+    createdAtMs: payment.createdAt.millisecondsSinceEpoch,
+    updatedAtMs: payment.updatedAt.millisecondsSinceEpoch,
+    deletedAtMs: Value(payment.deletedAt?.millisecondsSinceEpoch),
+    version: payment.version,
+  );
+}
+
+Payment _paymentFromRow(PaymentRow row) {
+  return Payment(
+    id: EntityId.fromString(row.id),
+    billId: EntityId.fromString(row.billId),
+    amount: Money(
+      minorUnits: row.amountMinorUnits,
+      currency: _currencyFromDatabase(row.currency),
+    ),
+    dueDate: CalendarDate.parse(row.dueDate),
+    paidAt: DateTime.fromMillisecondsSinceEpoch(row.paidAtMs, isUtc: true),
     notes: row.notes,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
       row.createdAtMs,

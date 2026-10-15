@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
-import 'package:tagihan_vendra/domain/calendar_date.dart';
-import 'package:tagihan_vendra/domain/money.dart';
 import 'package:tagihan_vendra/features/bills/bill_form_dialog.dart';
 
 class BillListPage extends StatelessWidget {
@@ -224,7 +223,7 @@ class _BillListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${_billingCycleLabel(bill.billingCycle)} · Jatuh tempo ${_formatDate(bill.nextDueDate)}',
+                    '${formatBillingCycle(bill.billingCycle)} · Jatuh tempo ${formatCalendarDate(bill.nextDueDate)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: colorScheme.onSurfaceVariant),
@@ -234,7 +233,7 @@ class _BillListItem extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             Text(
-              _formatMoney(bill),
+              formatMoney(bill.amount),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 10),
@@ -260,18 +259,18 @@ class _BillDetailsDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _DetailRow(label: 'Nominal', value: _formatMoney(bill)),
+            _DetailRow(label: 'Nominal', value: formatMoney(bill.amount)),
             _DetailRow(
               label: 'Siklus',
-              value: _billingCycleLabel(bill.billingCycle),
+              value: formatBillingCycle(bill.billingCycle),
             ),
             _DetailRow(
               label: 'Jatuh tempo',
-              value: _formatDate(bill.nextDueDate),
+              value: formatCalendarDate(bill.nextDueDate),
             ),
             _DetailRow(
               label: 'Tanggal mulai',
-              value: _formatDate(bill.startDate),
+              value: formatCalendarDate(bill.startDate),
             ),
             if (bill.category != null)
               _DetailRow(label: 'Kategori', value: bill.category!),
@@ -362,43 +361,3 @@ class _MessageState extends StatelessWidget {
 }
 
 enum _BillAction { edit, archive }
-
-String _billingCycleLabel(BillingCycle cycle) {
-  return switch (cycle) {
-    BillingCycle.oneTime => 'Satu kali',
-    BillingCycle.weekly => 'Mingguan',
-    BillingCycle.monthly => 'Bulanan',
-    BillingCycle.yearly => 'Tahunan',
-  };
-}
-
-String _formatDate(CalendarDate date) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
-}
-
-String _formatMoney(Bill bill) {
-  final digits = bill.amount.minorUnits.toString();
-  final parts = <String>[];
-  for (var end = digits.length; end > 0; end -= 3) {
-    final start = end - 3 < 0 ? 0 : end - 3;
-    parts.add(digits.substring(start, end));
-  }
-  final amount = parts.reversed.join('.');
-  return bill.amount.currency == Currency.idr
-      ? 'Rp$amount'
-      : '${bill.amount.currency.code} $amount';
-}

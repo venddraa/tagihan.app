@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/calendar_date.dart';
@@ -220,7 +221,7 @@ class _BillFormDialogState extends State<BillFormDialog> {
                           for (final cycle in BillingCycle.values)
                             DropdownMenuItem(
                               value: cycle,
-                              child: Text(_billingCycleLabel(cycle)),
+                              child: Text(formatBillingCycle(cycle)),
                             ),
                         ],
                         onChanged: _saving
@@ -314,7 +315,7 @@ class _DateField extends StatelessWidget {
             labelText: label,
             suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
           ),
-          child: Text(_formatDate(value)),
+          child: Text(formatCalendarDate(value)),
         ),
       ),
     );
@@ -324,31 +325,4 @@ class _DateField extends StatelessWidget {
 String? _nullableText(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
-}
-
-String _billingCycleLabel(BillingCycle cycle) {
-  return switch (cycle) {
-    BillingCycle.oneTime => 'Satu kali',
-    BillingCycle.weekly => 'Mingguan',
-    BillingCycle.monthly => 'Bulanan',
-    BillingCycle.yearly => 'Tahunan',
-  };
-}
-
-String _formatDate(CalendarDate date) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
 }

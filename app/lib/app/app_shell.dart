@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/features/bills/bill_list_page.dart';
+import 'package:tagihan_vendra/features/payments/payment_history_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.database});
@@ -337,6 +338,9 @@ class _DestinationContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (selectedIndex == 1) {
       return BillListPage(database: database, compact: compact);
+    }
+    if (selectedIndex == 2) {
+      return PaymentHistoryPage(database: database, compact: compact);
     }
 
     final textTheme = Theme.of(context).textTheme;
