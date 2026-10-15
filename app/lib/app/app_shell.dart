@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/features/bills/bill_list_page.dart';
+import 'package:tagihan_vendra/features/overview/overview_page.dart';
 import 'package:tagihan_vendra/features/payments/payment_history_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -119,6 +120,7 @@ class _DesktopShell extends StatelessWidget {
                 database: database,
                 destination: destination,
                 selectedIndex: selectedIndex,
+                onDestinationSelected: onDestinationSelected,
               ),
             ),
           ],
@@ -151,6 +153,7 @@ class _CompactShell extends StatelessWidget {
         database: database,
         destination: destination,
         selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
         compact: true,
       ),
       bottomNavigationBar: _BottomNavigation(
@@ -326,16 +329,26 @@ class _DestinationContent extends StatelessWidget {
     required this.database,
     required this.destination,
     required this.selectedIndex,
+    required this.onDestinationSelected,
     this.compact = false,
   });
 
   final AppDatabase database;
   final _AppDestination destination;
   final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (selectedIndex == 0) {
+      return OverviewPage(
+        database: database,
+        compact: compact,
+        onOpenBills: () => onDestinationSelected(1),
+        onOpenPayments: () => onDestinationSelected(2),
+      );
+    }
     if (selectedIndex == 1) {
       return BillListPage(database: database, compact: compact);
     }

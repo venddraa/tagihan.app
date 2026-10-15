@@ -7,6 +7,7 @@ import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/money.dart';
+import 'package:tagihan_vendra/domain/payment.dart';
 
 void main() {
   late AppDatabase database;
@@ -176,6 +177,79 @@ void main() {
 
     await _disposeApp(tester);
   });
+
+  for (final width in [390.0, 1200.0]) {
+    testWidgets(
+      'ringkasan responsif dan mengikuti database pada lebar $width',
+      (tester) async {
+        final now = DateTime.now().toUtc();
+        final localNow = DateTime.now();
+        final due = CalendarDate.fromDateTime(localNow);
+        final overdueDate = CalendarDate.fromDateTime(
+          DateTime(localNow.year, localNow.month, localNow.day - 1),
+        );
+        Bill createBill(String name, CalendarDate nextDueDate, int amount) {
+          return Bill(
+            id: EntityId.generate(),
+            name: name,
+            amount: Money(minorUnits: amount, currency: Currency.idr),
+            billingCycle: BillingCycle.monthly,
+            nextDueDate: nextDueDate,
+            startDate: CalendarDate(2000, 1, 1),
+            status: BillStatus.active,
+            createdAt: now,
+            updatedAt: now,
+            version: 1,
+          );
+        }
+
+        final overdueBill = createBill('Tagihan terlambat', overdueDate, 10000);
+        final todayBill = createBill('Tagihan hari ini', due, 20000);
+        await database.insertBill(overdueBill);
+        await database.insertBill(todayBill);
+        await _setScreenSize(tester, Size(width, 900));
+        await tester.pumpWidget(TagihanVendraApp(database: database));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Terlambat (1)'), findsOneWidget);
+        expect(find.text('Mendatang (1)'), findsOneWidget);
+        expect(find.text('Rp30.000'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.runAsync(() async {
+          await database.recordPayment(
+            Payment(
+              id: EntityId.generate(),
+              billId: todayBill.id,
+              amount: todayBill.amount,
+              dueDate: due,
+              paidAt: now,
+              createdAt: now,
+              updatedAt: now,
+              version: 1,
+            ),
+          );
+        });
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Pembayaran terbaru'),
+          200,
+          scrollable: find.descendant(
+            of: find.byKey(const ValueKey('overview-scroll')),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        expect(find.text('Belum ada pembayaran tercatat.'), findsNothing);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('Lihat semua').last);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('payment-list')), findsOneWidget);
+        await _disposeApp(tester);
+      },
+    );
+  }
 }
 
 Future<void> _disposeApp(WidgetTester tester) async {
