@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: Tagihan Vendra Sync API
+  version: 0.1.0
+  description: >-
+    Kontrak awal service sinkronisasi lokal. Milestone ini hanya menyediakan
+    health check; endpoint bootstrap, push, dan pull belum diimplementasikan.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Service lokal Fedora
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      summary: Memeriksa kesiapan service dan database hub
+      responses:
+        '200':
+          description: Service dan database siap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Database hub tidak tersedia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - service
+        - protocol_version
+        - database_schema_version
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          const: tagihan-vendra-sync
+        protocol_version:
+          type: integer
+          const: 1
+        database_schema_version:
+          type: integer
+          minimum: 1
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - error
+      properties:
+        status:
+          type: string
+          const: unavailable
+        error:
+          type: string
