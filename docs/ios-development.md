@@ -3,7 +3,7 @@
 Target aplikasi tetap Flutter iOS. Development shared code dilakukan di Fedora;
 build dan pengujian native iOS memerlukan Mac dengan Xcode.
 
-## Status Milestone 9
+## Status Milestone 10
 
 - Target `app/ios` sudah tersedia; display name `Tagihan Vendra`.
 - Bundle identifier saat ini `app.tagihan.vendra`.
@@ -16,8 +16,13 @@ build dan pengujian native iOS memerlukan Mac dengan Xcode.
 - Form, daftar, dan detail disesuaikan untuk layar kecil, safe area, serta keyboard.
 - Widget test memakai ukuran ponsel dan `TargetPlatform.iOS` di host. Ini bukan
   iOS Simulator dan tidak menguji plugin atau binary SQLite iOS.
-- Build Simulator, signing, run iPhone, serta persistence native iOS belum
-  diverifikasi. Validasi database iPhone masuk Milestone 10.
+- Schema, constraint, migration, dan business logic database diuji otomatis.
+- Persistence berbasis file juga diuji dengan menutup lalu membuka ulang SQLite;
+  tagihan, pembayaran, dan perubahan jatuh tempo harus tetap tersimpan.
+- Seluruh pengujian tersebut berjalan di Fedora dengan SQLite native. Build
+  Simulator, signing, plugin `path_provider`, dan persistence pada iPhone asli
+  belum dapat diverifikasi tanpa Mac/Xcode. Hasil Fedora tidak boleh dicatat
+  sebagai hasil pengujian native iPhone.
 
 ## Yang dapat dilakukan di Fedora
 
