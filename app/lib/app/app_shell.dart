@@ -149,12 +149,16 @@ class _CompactShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const _Brand()),
-      body: _DestinationContent(
-        database: database,
-        destination: destination,
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onDestinationSelected,
-        compact: true,
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: _DestinationContent(
+          database: database,
+          destination: destination,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onDestinationSelected,
+          compact: true,
+        ),
       ),
       bottomNavigationBar: _BottomNavigation(
         destinations: destinations,

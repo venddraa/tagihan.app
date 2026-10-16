@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
+import 'package:tagihan_vendra/core/widgets/record_list_item.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/features/payments/payment_form_dialog.dart';
 
@@ -150,57 +151,28 @@ class _PaymentListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final payment = entry.payment;
     final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
+    return RecordListItem(
       key: ValueKey('payment-${payment.id.value}'),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 18),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.check,
-                color: colorScheme.onPrimaryContainer,
-                size: 21,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.billName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Dibayar ${formatDateTimeDate(payment.paidAt)} · Periode ${formatCalendarDate(payment.dueDate)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              formatMoney(payment.amount),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 10),
-            Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-          ],
+      title: entry.billName,
+      amount: formatMoney(payment.amount),
+      leading: Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(10),
         ),
+        child: Icon(
+          Icons.check,
+          color: colorScheme.onPrimaryContainer,
+          size: 21,
+        ),
+      ),
+      subtitle: Text(
+        'Dibayar ${formatDateTimeDate(payment.paidAt)} · Periode ${formatCalendarDate(payment.dueDate)}',
+        style: TextStyle(color: colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -215,6 +187,7 @@ class _PaymentDetailsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final payment = entry.payment;
     return AlertDialog(
+      scrollable: true,
       title: Text(entry.billName),
       content: SizedBox(
         width: 440,
@@ -255,19 +228,17 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 124,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          Expanded(child: Text(value)),
+          const SizedBox(height: 4),
+          Text(value),
         ],
       ),
     );
@@ -291,16 +262,22 @@ class _PaymentMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 38, color: colorScheme.onSurfaceVariant),
-          const SizedBox(height: 16),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(message, style: TextStyle(color: colorScheme.onSurfaceVariant)),
-          if (action != null) ...[const SizedBox(height: 12), action!],
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 38, color: colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            if (action != null) ...[const SizedBox(height: 12), action!],
+          ],
+        ),
       ),
     );
   }
