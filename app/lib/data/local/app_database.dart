@@ -403,11 +403,28 @@ final class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<List<PendingSyncOperation>> getPendingSyncOperations() async {
-    final rows = await (select(
-      syncOutbox,
-    )..orderBy([(table) => OrderingTerm.asc(table.localSequence)])).get();
+  Future<List<PendingSyncOperation>> getPendingSyncOperations({
+    int limit = 100,
+  }) async {
+    if (limit < 1 || limit > 100) {
+      throw RangeError.range(limit, 1, 100, 'limit');
+    }
+    final rows =
+        await (select(syncOutbox)
+              ..orderBy([(table) => OrderingTerm.asc(table.localSequence)])
+              ..limit(limit))
+            .get();
     return rows.map(_syncOperationFromRow).toList(growable: false);
+  }
+
+  Future<int> acknowledgeSyncOperations(Iterable<EntityId> operationIds) {
+    final values = operationIds.map((id) => id.value).toSet();
+    if (values.isEmpty) {
+      return Future.value(0);
+    }
+    return (delete(
+      syncOutbox,
+    )..where((table) => table.operationId.isIn(values))).go();
   }
 
   Future<void> _updateBillRow(Bill bill) async {

@@ -3,8 +3,13 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/venddraa/tagihan.app/sync/internal/storage"
 )
 
 const ProtocolVersion = 1
@@ -12,6 +17,7 @@ const ProtocolVersion = 1
 type databaseHealth interface {
 	Ping(context.Context) error
 	SchemaVersion(context.Context) (int, error)
+	Push(context.Context, string, []storage.PushOperation) ([]storage.PushResult, error)
 }
 
 type handler struct {
@@ -22,6 +28,7 @@ func New(database databaseHealth) http.Handler {
 	handler := &handler{database: database}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", handler.health)
+	mux.HandleFunc("POST /v1/sync/push", handler.push)
 	return mux
 }
 
@@ -51,6 +58,130 @@ func (h *handler) health(writer http.ResponseWriter, request *http.Request) {
 		"service":                 "tagihan-vendra-sync",
 		"protocol_version":        ProtocolVersion,
 		"database_schema_version": schemaVersion,
+	})
+}
+
+type pushRequest struct {
+	ProtocolVersion int                     `json:"protocol_version"`
+	DeviceID        string                  `json:"device_id"`
+	Operations      []storage.PushOperation `json:"operations"`
+}
+
+func (h *handler) push(writer http.ResponseWriter, request *http.Request) {
+	if mediaType := strings.TrimSpace(strings.Split(
+		request.Header.Get("Content-Type"),
+		";",
+	)[0]); mediaType != "application/json" {
+		writeAPIError(
+			writer,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type harus application/json.",
+		)
+		return
+	}
+
+	request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	var input pushRequest
+	if err := decoder.Decode(&input); err != nil {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_json",
+			"Request JSON tidak valid.",
+		)
+		return
+	}
+	if err := ensureJSONEnd(decoder); err != nil {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_json",
+			"Request JSON tidak valid.",
+		)
+		return
+	}
+	if input.ProtocolVersion != ProtocolVersion {
+		writeAPIError(
+			writer,
+			http.StatusConflict,
+			"protocol_version_mismatch",
+			"Protocol version tidak didukung.",
+		)
+		return
+	}
+	if len(input.Operations) == 0 {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"empty_batch",
+			"Batch push tidak boleh kosong.",
+		)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
+	defer cancel()
+	results, err := h.database.Push(ctx, input.DeviceID, input.Operations)
+	if errors.Is(err, storage.ErrInvalidDevice) {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_device_id",
+			"device_id tidak valid.",
+		)
+		return
+	}
+	if errors.Is(err, storage.ErrBatchTooLarge) {
+		writeAPIError(
+			writer,
+			http.StatusRequestEntityTooLarge,
+			"batch_too_large",
+			"Batch push maksimal 100 operation.",
+		)
+		return
+	}
+	if err != nil {
+		writeAPIError(
+			writer,
+			http.StatusServiceUnavailable,
+			"database_unavailable",
+			"Push belum dapat diproses.",
+		)
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"protocol_version": ProtocolVersion,
+		"results":          results,
+	})
+}
+
+func ensureJSONEnd(decoder *json.Decoder) error {
+	var extra any
+	err := decoder.Decode(&extra)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err == nil {
+		return errors.New("multiple JSON values")
+	}
+	return err
+}
+
+func writeAPIError(
+	writer http.ResponseWriter,
+	status int,
+	code string,
+	message string,
+) {
+	writeJSON(writer, status, map[string]any{
+		"error": map[string]string{
+			"code":    code,
+			"message": message,
+		},
 	})
 }
 

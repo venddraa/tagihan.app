@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.1.0
+  version: 0.2.0
   description: >-
-    Kontrak awal service sinkronisasi lokal. Milestone ini hanya menyediakan
-    health check; endpoint bootstrap, push, dan pull belum diimplementasikan.
+    Kontrak service sinkronisasi lokal. Health check dan push operation sudah
+    tersedia; bootstrap dan pull belum diimplementasikan.
 servers:
   - url: http://127.0.0.1:8787
     description: Service lokal Fedora
@@ -26,6 +26,84 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/sync/push:
+    post:
+      operationId: pushChanges
+      summary: Mengirim maksimal 100 operation lokal ke sync hub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushRequest'
+            example:
+              protocol_version: 1
+              device_id: 0199e7d0-0000-7000-8000-000000000001
+              operations:
+                - operation_id: 0199e7d0-0000-7000-8000-000000000002
+                  entity_type: bill
+                  entity_id: 0199e7d0-0000-7000-8000-000000000003
+                  operation_type: bill.create
+                  base_version: 0
+                  payload:
+                    id: 0199e7d0-0000-7000-8000-000000000003
+                    name: Spotify
+                    category: Hiburan
+                    amount_minor_units: 59990
+                    currency: IDR
+                    billing_cycle: monthly
+                    next_due_date: '2026-10-25'
+                    start_date: '2026-01-25'
+                    status: active
+                    notes: null
+                    created_at: '2026-10-17T00:00:00Z'
+                    updated_at: '2026-10-17T00:00:00Z'
+                    deleted_at: null
+                    version: 1
+                  created_at: '2026-10-17T00:00:00Z'
+      responses:
+        '200':
+          description: Batch diproses; periksa status setiap operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushResponse'
+              example:
+                protocol_version: 1
+                results:
+                  - operation_id: 0199e7d0-0000-7000-8000-000000000002
+                    status: accepted
+                    server_sequences: [1]
+        '400':
+          description: Request, device ID, atau JSON tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '409':
+          description: Protocol version tidak didukung
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '413':
+          description: Batch atau request terlalu besar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '415':
+          description: Content-Type bukan application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '503':
+          description: Hub tidak dapat memproses batch secara durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
 components:
   schemas:
     HealthResponse:
@@ -61,3 +139,118 @@ components:
           const: unavailable
         error:
           type: string
+    PushRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - device_id
+        - operations
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        device_id:
+          $ref: '#/components/schemas/UUIDv7'
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PushOperation'
+    PushOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - operation_id
+        - entity_type
+        - entity_id
+        - operation_type
+        - base_version
+        - payload
+        - created_at
+      properties:
+        operation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        entity_type:
+          type: string
+          enum: [bill, payment]
+        entity_id:
+          $ref: '#/components/schemas/UUIDv7'
+        operation_type:
+          type: string
+          enum: [bill.create, bill.update, bill.archive, payment.record]
+        base_version:
+          type: integer
+          minimum: 0
+        payload:
+          type: object
+          description: >-
+            Snapshot Bill lengkap, atau object payment.record yang membawa
+            snapshot Payment, snapshot Bill hasil, dan bill_base_version.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp UTC untuk audit, bukan penentu urutan.
+    PushResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - results
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PushResult'
+    PushResult:
+      type: object
+      additionalProperties: false
+      required:
+        - operation_id
+        - status
+        - server_sequences
+      properties:
+        operation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        status:
+          type: string
+          enum: [accepted, duplicate, conflict, rejected]
+        server_sequences:
+          type: array
+          description: >-
+            Satu sequence untuk mutation biasa; payment.record dapat
+            menghasilkan sequence Payment dan Bill.
+          items:
+            type: integer
+            minimum: 1
+        error_code:
+          type: string
+        entity_type:
+          type: string
+          enum: [bill, payment]
+        entity_id:
+          $ref: '#/components/schemas/UUIDv7'
+        current_version:
+          type: integer
+          minimum: 0
+    APIErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    UUIDv7:
+      type: string
+      pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
