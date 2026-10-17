@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/local/sync_operation.dart';
-import 'package:tagihan_vendra/data/sync/sync_push_client.dart';
+import 'package:tagihan_vendra/data/sync/sync_http.dart';
 
 enum SyncBootstrapStatus { accepted, duplicate, alreadyCompleted }
 

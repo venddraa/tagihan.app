@@ -1,19 +1,12 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/local/sync_operation.dart';
+import 'package:tagihan_vendra/data/sync/sync_http.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 
-typedef SyncJSONPost = Future<SyncHTTPResponse> Function(Uri uri, String body);
-
-final class SyncHTTPResponse {
-  const SyncHTTPResponse({required this.statusCode, required this.body});
-
-  final int statusCode;
-  final String body;
-}
+export 'package:tagihan_vendra/data/sync/sync_http.dart';
 
 final class SyncPushSummary {
   const SyncPushSummary({
@@ -29,26 +22,6 @@ final class SyncPushSummary {
   final int rejected;
 
   bool get hadWork => sent > 0;
-}
-
-final class SyncUnavailableException implements Exception {
-  const SyncUnavailableException([
-    this.message = 'Sync service tidak tersedia.',
-  ]);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-final class SyncProtocolException implements Exception {
-  const SyncProtocolException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
 }
 
 final class SyncPushClient {
@@ -186,29 +159,5 @@ List<_PushResult> _decodeResults(
   } on Object catch (error) {
     if (error is SyncProtocolException) rethrow;
     throw const SyncProtocolException('Response sync service tidak valid.');
-  }
-}
-
-Future<SyncHTTPResponse> postSyncJSONWithDartIO(Uri uri, String body) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-  try {
-    final request = await client
-        .postUrl(uri)
-        .timeout(const Duration(seconds: 5));
-    request.headers.contentType = ContentType.json;
-    request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
-    request.write(body);
-    final response = await request.close().timeout(const Duration(seconds: 15));
-    final responseBody = await utf8.decoder.bind(response).join();
-    return SyncHTTPResponse(
-      statusCode: response.statusCode,
-      body: responseBody,
-    );
-  } on SocketException catch (_) {
-    throw const SyncUnavailableException();
-  } on TimeoutException catch (_) {
-    throw const SyncUnavailableException('Sync service tidak merespons.');
-  } finally {
-    client.close(force: true);
   }
 }
