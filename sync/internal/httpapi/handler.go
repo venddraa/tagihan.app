@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ type databaseHealth interface {
 	SchemaVersion(context.Context) (int, error)
 	Push(context.Context, string, []storage.PushOperation) ([]storage.PushResult, error)
 	Bootstrap(context.Context, storage.BootstrapInput) (storage.BootstrapResult, error)
+	Pull(context.Context, int64, int) (storage.PullPage, error)
 }
 
 type handler struct {
@@ -31,7 +33,81 @@ func New(database databaseHealth) http.Handler {
 	mux.HandleFunc("GET /v1/health", handler.health)
 	mux.HandleFunc("POST /v1/sync/bootstrap", handler.bootstrap)
 	mux.HandleFunc("POST /v1/sync/push", handler.push)
+	mux.HandleFunc("GET /v1/sync/pull", handler.pull)
 	return mux
+}
+
+func (h *handler) pull(writer http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+	queryIsValid := len(query["after"]) == 1 && len(query["limit"]) <= 1
+	for name := range query {
+		if name != "after" && name != "limit" {
+			queryIsValid = false
+		}
+	}
+	if !queryIsValid {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_query",
+			"Query pull tidak valid.",
+		)
+		return
+	}
+
+	after, err := strconv.ParseInt(query.Get("after"), 10, 64)
+	if err != nil || after < 0 {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_cursor",
+			"Cursor pull harus berupa integer non-negatif.",
+		)
+		return
+	}
+	limit := storage.MaxPullChanges
+	if query.Has("limit") {
+		limit, err = strconv.Atoi(query.Get("limit"))
+		if err != nil || limit < 1 || limit > storage.MaxPullChanges {
+			writeAPIError(
+				writer,
+				http.StatusBadRequest,
+				"invalid_limit",
+				"Limit pull harus berada antara 1 dan 100.",
+			)
+			return
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
+	defer cancel()
+	page, err := h.database.Pull(ctx, after, limit)
+	if errors.Is(err, storage.ErrInvalidCursor) ||
+		errors.Is(err, storage.ErrInvalidPullLimit) {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_query",
+			"Query pull tidak valid.",
+		)
+		return
+	}
+	if err != nil {
+		writeAPIError(
+			writer,
+			http.StatusServiceUnavailable,
+			"database_unavailable",
+			"Pull belum dapat diproses.",
+		)
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"protocol_version": ProtocolVersion,
+		"changes":          page.Changes,
+		"next_cursor":      page.NextCursor,
+		"has_more":         page.HasMore,
+	})
 }
 
 type bootstrapRequest struct {

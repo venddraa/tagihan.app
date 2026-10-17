@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.3.0
+  version: 0.4.0
   description: >-
     Kontrak service sinkronisasi lokal. Health check, bootstrap satu kali, dan
-    push operation sudah tersedia; pull belum diimplementasikan.
+    push operation, dan pull perubahan berurutan sudah tersedia.
 servers:
   - url: http://127.0.0.1:8787
     description: Service lokal Fedora
@@ -167,6 +167,72 @@ paths:
                 $ref: '#/components/schemas/APIErrorResponse'
         '503':
           description: Hub tidak dapat memproses batch secara durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+  /v1/sync/pull:
+    get:
+      operationId: pullChanges
+      summary: Mengambil perubahan hub setelah cursor tertentu
+      parameters:
+        - name: after
+          in: query
+          required: true
+          description: Server sequence terakhir yang sudah diterapkan client.
+          schema:
+            type: integer
+            minimum: 0
+        - name: limit
+          in: query
+          required: false
+          description: Jumlah maksimal perubahan dalam satu halaman.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+      responses:
+        '200':
+          description: Halaman perubahan terurut berdasarkan server sequence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullResponse'
+              example:
+                protocol_version: 1
+                changes:
+                  - server_sequence: 1
+                    operation_id: 0199e7d0-0000-7000-8000-000000000002
+                    entity_type: bill
+                    entity_id: 0199e7d0-0000-7000-8000-000000000003
+                    version: 1
+                    payload:
+                      id: 0199e7d0-0000-7000-8000-000000000003
+                      name: Spotify
+                      category: Hiburan
+                      amount_minor_units: 59990
+                      currency: IDR
+                      billing_cycle: monthly
+                      next_due_date: '2026-10-25'
+                      start_date: '2026-01-25'
+                      status: active
+                      notes: null
+                      created_at: '2026-10-17T00:00:00Z'
+                      updated_at: '2026-10-17T00:00:00Z'
+                      deleted_at: null
+                      version: 1
+                    created_at: '2026-10-17T00:00:00Z'
+                next_cursor: 1
+                has_more: false
+        '400':
+          description: Cursor, limit, atau query tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '503':
+          description: Hub tidak dapat membaca change log
           content:
             application/json:
               schema:
@@ -357,6 +423,59 @@ components:
         current_version:
           type: integer
           minimum: 0
+    PullResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - changes
+        - next_cursor
+        - has_more
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        changes:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PullChange'
+        next_cursor:
+          type: integer
+          minimum: 0
+        has_more:
+          type: boolean
+    PullChange:
+      type: object
+      additionalProperties: false
+      required:
+        - server_sequence
+        - operation_id
+        - entity_type
+        - entity_id
+        - version
+        - payload
+        - created_at
+      properties:
+        server_sequence:
+          type: integer
+          minimum: 1
+        operation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        entity_type:
+          type: string
+          enum: [bill, payment]
+        entity_id:
+          $ref: '#/components/schemas/UUIDv7'
+        version:
+          type: integer
+          minimum: 1
+        payload:
+          type: object
+          description: Snapshot lengkap entity pada server sequence ini.
+        created_at:
+          type: string
+          format: date-time
     APIErrorResponse:
       type: object
       additionalProperties: false

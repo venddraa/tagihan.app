@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/venddraa/tagihan.app/sync/internal/storage"
@@ -20,6 +21,20 @@ type fakeDatabase struct {
 	onPush          func(string, []storage.PushOperation)
 	bootstrapResult storage.BootstrapResult
 	bootstrapErr    error
+	pullPage        storage.PullPage
+	pullErr         error
+	onPull          func(int64, int)
+}
+
+func (database fakeDatabase) Pull(
+	_ context.Context,
+	after int64,
+	limit int,
+) (storage.PullPage, error) {
+	if database.onPull != nil {
+		database.onPull(after, limit)
+	}
+	return database.pullPage, database.pullErr
 }
 
 func (database fakeDatabase) Bootstrap(
@@ -317,5 +332,119 @@ func TestBootstrapRejectsNonEmptyHub(t *testing.T) {
 
 	if response.Code != http.StatusConflict {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestPullReturnsPage(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	database := fakeDatabase{
+		pullPage: storage.PullPage{
+			Changes: []storage.PullChange{{
+				ServerSequence: 8,
+				OperationID:    "0199e7d0-0000-7000-8000-000000000002",
+				EntityType:     "bill",
+				EntityID:       "0199e7d0-0000-7000-8000-000000000003",
+				Version:        2,
+				Payload:        json.RawMessage(`{"id":"0199e7d0-0000-7000-8000-000000000003"}`),
+				CreatedAt:      "2026-10-17T00:00:00Z",
+			}},
+			NextCursor: 8,
+			HasMore:    true,
+		},
+		onPull: func(after int64, limit int) {
+			called = true
+			if after != 7 || limit != 1 {
+				t.Errorf("Pull(%d, %d), want Pull(7, 1)", after, limit)
+			}
+		},
+	}
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/sync/pull?after=7&limit=1",
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	New(database).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !called {
+		t.Fatal("storage Pull tidak dipanggil")
+	}
+	var body struct {
+		ProtocolVersion int                  `json:"protocol_version"`
+		Changes         []storage.PullChange `json:"changes"`
+		NextCursor      int64                `json:"next_cursor"`
+		HasMore         bool                 `json:"has_more"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.ProtocolVersion != ProtocolVersion ||
+		len(body.Changes) != 1 ||
+		body.NextCursor != 8 ||
+		!body.HasMore {
+		t.Errorf("response body = %#v", body)
+	}
+}
+
+func TestPullUsesDefaultLimit(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	request := httptest.NewRequest(http.MethodGet, "/v1/sync/pull?after=0", nil)
+	response := httptest.NewRecorder()
+	New(fakeDatabase{
+		pullPage: storage.PullPage{Changes: []storage.PullChange{}},
+		onPull: func(after int64, limit int) {
+			called = true
+			if after != 0 || limit != storage.MaxPullChanges {
+				t.Errorf("Pull(%d, %d)", after, limit)
+			}
+		},
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || !called {
+		t.Fatalf("status = %d, called = %v", response.Code, called)
+	}
+	if body := response.Body.String(); !strings.Contains(body, `"changes":[]`) {
+		t.Errorf("body = %s, want empty JSON array", body)
+	}
+}
+
+func TestPullRejectsInvalidQuery(t *testing.T) {
+	t.Parallel()
+
+	tests := []string{
+		"/v1/sync/pull",
+		"/v1/sync/pull?after=-1",
+		"/v1/sync/pull?after=nope",
+		"/v1/sync/pull?after=0&limit=0",
+		"/v1/sync/pull?after=0&limit=101",
+		"/v1/sync/pull?after=0&unknown=1",
+		"/v1/sync/pull?after=0&after=1",
+	}
+	for _, target := range tests {
+		target := target
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			response := httptest.NewRecorder()
+
+			New(fakeDatabase{}).ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Errorf(
+					"status = %d, want %d, body = %s",
+					response.Code,
+					http.StatusBadRequest,
+					response.Body.String(),
+				)
+			}
+		})
 	}
 }
