@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.2.0
+  version: 0.3.0
   description: >-
-    Kontrak service sinkronisasi lokal. Health check dan push operation sudah
-    tersedia; bootstrap dan pull belum diimplementasikan.
+    Kontrak service sinkronisasi lokal. Health check, bootstrap satu kali, dan
+    push operation sudah tersedia; pull belum diimplementasikan.
 servers:
   - url: http://127.0.0.1:8787
     description: Service lokal Fedora
@@ -26,6 +26,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/sync/bootstrap:
+    post:
+      operationId: bootstrapHub
+      summary: Mengisi hub kosong dengan snapshot awal dari Fedora
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BootstrapRequest'
+            example:
+              protocol_version: 1
+              bootstrap_id: 0199e7d0-0000-7000-8000-000000000030
+              device_id: 0199e7d0-0000-7000-8000-000000000001
+              bills:
+                - id: 0199e7d0-0000-7000-8000-000000000003
+                  name: Spotify
+                  category: Hiburan
+                  amount_minor_units: 59990
+                  currency: IDR
+                  billing_cycle: monthly
+                  next_due_date: '2026-10-25'
+                  start_date: '2026-01-25'
+                  status: active
+                  notes: null
+                  created_at: '2026-10-01T00:00:00Z'
+                  updated_at: '2026-10-01T00:00:00Z'
+                  deleted_at: null
+                  version: 1
+              payments: []
+              created_at: '2026-10-17T00:00:00Z'
+      responses:
+        '200':
+          description: Snapshot diterima atau retry dikenali sebagai duplicate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapResponse'
+              example:
+                protocol_version: 1
+                bootstrap_id: 0199e7d0-0000-7000-8000-000000000030
+                status: accepted
+                server_sequences: [1]
+        '400':
+          description: Snapshot atau request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '409':
+          description: Protocol berbeda atau hub sudah berisi data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '415':
+          description: Content-Type bukan application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '503':
+          description: Hub tidak dapat menyimpan snapshot secara durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
   /v1/sync/push:
     post:
       operationId: pushChanges
@@ -158,6 +225,59 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/PushOperation'
+    BootstrapRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - bootstrap_id
+        - device_id
+        - bills
+        - payments
+        - created_at
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        bootstrap_id:
+          $ref: '#/components/schemas/UUIDv7'
+        device_id:
+          $ref: '#/components/schemas/UUIDv7'
+        bills:
+          type: array
+          description: Semua snapshot Bill lokal, termasuk archived dan tombstone.
+          items:
+            type: object
+        payments:
+          type: array
+          description: Semua snapshot Payment historis tanpa side effect recurring.
+          items:
+            type: object
+        created_at:
+          type: string
+          format: date-time
+    BootstrapResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - bootstrap_id
+        - status
+        - server_sequences
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        bootstrap_id:
+          $ref: '#/components/schemas/UUIDv7'
+        status:
+          type: string
+          enum: [accepted, duplicate]
+        server_sequences:
+          type: array
+          items:
+            type: integer
+            minimum: 1
     PushOperation:
       type: object
       additionalProperties: false

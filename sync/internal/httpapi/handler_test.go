@@ -13,11 +13,20 @@ import (
 )
 
 type fakeDatabase struct {
-	err           error
-	schemaVersion int
-	pushResults   []storage.PushResult
-	pushErr       error
-	onPush        func(string, []storage.PushOperation)
+	err             error
+	schemaVersion   int
+	pushResults     []storage.PushResult
+	pushErr         error
+	onPush          func(string, []storage.PushOperation)
+	bootstrapResult storage.BootstrapResult
+	bootstrapErr    error
+}
+
+func (database fakeDatabase) Bootstrap(
+	_ context.Context,
+	_ storage.BootstrapInput,
+) (storage.BootstrapResult, error) {
+	return database.bootstrapResult, database.bootstrapErr
 }
 
 func (database fakeDatabase) Push(
@@ -242,5 +251,71 @@ func TestPushRejectsInvalidEnvelope(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestBootstrapReturnsDurableResult(t *testing.T) {
+	t.Parallel()
+
+	const bootstrapID = "0199e7d0-0000-7000-8000-000000000030"
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/sync/bootstrap",
+		bytes.NewBufferString(`{
+			"protocol_version": 1,
+			"bootstrap_id": "`+bootstrapID+`",
+			"device_id": "0199e7d0-0000-7000-8000-000000000001",
+			"bills": [],
+			"payments": [],
+			"created_at": "2026-10-17T00:00:00Z"
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	database := fakeDatabase{bootstrapResult: storage.BootstrapResult{
+		BootstrapID:     bootstrapID,
+		Status:          "accepted",
+		ServerSequences: []int64{},
+	}}
+
+	New(database).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var body map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["bootstrap_id"] != bootstrapID || body["status"] != "accepted" {
+		t.Errorf("response body = %#v", body)
+	}
+}
+
+func TestBootstrapRejectsNonEmptyHub(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/sync/bootstrap",
+		bytes.NewBufferString(`{
+			"protocol_version": 1,
+			"bootstrap_id": "0199e7d0-0000-7000-8000-000000000030",
+			"device_id": "0199e7d0-0000-7000-8000-000000000001",
+			"bills": [],
+			"payments": [],
+			"created_at": "2026-10-17T00:00:00Z"
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	New(fakeDatabase{bootstrapErr: storage.ErrHubNotEmpty}).ServeHTTP(
+		response,
+		request,
+	)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

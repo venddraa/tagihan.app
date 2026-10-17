@@ -321,7 +321,7 @@ func applyBillOperation(
 	sequence, err := insertChange(
 		ctx,
 		transaction,
-		operation,
+		operation.OperationID,
 		"bill",
 		bill.ID,
 		bill.Version,
@@ -358,6 +358,11 @@ func applyPaymentRecord(
 	}
 	if code := validatePayment(payload.Payment); code != "" {
 		return persistRejected(ctx, transaction, deviceID, operation, basic, code)
+	}
+	if payload.Payment.DeletedAt != nil {
+		return persistRejected(
+			ctx, transaction, deviceID, operation, basic, "deleted_payment_not_allowed",
+		)
 	}
 	if code := validateBill(payload.Bill); code != "" {
 		return persistRejected(ctx, transaction, deviceID, operation, basic, code)
@@ -476,7 +481,7 @@ func applyPaymentRecord(
 	paymentSequence, err := insertChange(
 		ctx,
 		transaction,
-		operation,
+		operation.OperationID,
 		"payment",
 		payload.Payment.ID,
 		payload.Payment.Version,
@@ -507,7 +512,7 @@ func applyPaymentRecord(
 		billSequence, err := insertChange(
 			ctx,
 			transaction,
-			operation,
+			operation.OperationID,
 			"bill",
 			payload.Bill.ID,
 			payload.Bill.Version,
@@ -610,7 +615,7 @@ func validatePayment(payment paymentSnapshot) string {
 	if _, err := parseOptionalTimestamp(payment.DeletedAt); err != nil {
 		return "invalid_payment"
 	}
-	if payment.DeletedAt != nil || payment.Version < 1 {
+	if payment.Version < 1 {
 		return "invalid_payment"
 	}
 	return ""
@@ -784,7 +789,7 @@ func persistConflict(
 func insertChange(
 	ctx context.Context,
 	transaction *sql.Tx,
-	operation PushOperation,
+	operationID string,
 	entityType string,
 	entityID string,
 	version int,
@@ -796,7 +801,7 @@ func insertChange(
 		`INSERT INTO changes(
 			operation_id, entity_type, entity_id, version, payload_json, created_at_ms
 		) VALUES (?, ?, ?, ?, ?, ?)`,
-		operation.OperationID,
+		operationID,
 		entityType,
 		entityID,
 		version,
@@ -836,8 +841,12 @@ func operationHash(operation PushOperation) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(canonical)
-	return hex.EncodeToString(sum[:]), nil
+	return hashBytes(canonical), nil
+}
+
+func hashBytes(value []byte) string {
+	sum := sha256.Sum256(value)
+	return hex.EncodeToString(sum[:])
 }
 
 func affectedEntities(operation PushOperation) []entityKey {

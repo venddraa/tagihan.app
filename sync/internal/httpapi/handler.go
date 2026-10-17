@@ -18,6 +18,7 @@ type databaseHealth interface {
 	Ping(context.Context) error
 	SchemaVersion(context.Context) (int, error)
 	Push(context.Context, string, []storage.PushOperation) ([]storage.PushResult, error)
+	Bootstrap(context.Context, storage.BootstrapInput) (storage.BootstrapResult, error)
 }
 
 type handler struct {
@@ -28,8 +29,109 @@ func New(database databaseHealth) http.Handler {
 	handler := &handler{database: database}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", handler.health)
+	mux.HandleFunc("POST /v1/sync/bootstrap", handler.bootstrap)
 	mux.HandleFunc("POST /v1/sync/push", handler.push)
 	return mux
+}
+
+type bootstrapRequest struct {
+	ProtocolVersion int               `json:"protocol_version"`
+	BootstrapID     string            `json:"bootstrap_id"`
+	DeviceID        string            `json:"device_id"`
+	Bills           []json.RawMessage `json:"bills"`
+	Payments        []json.RawMessage `json:"payments"`
+	CreatedAt       string            `json:"created_at"`
+}
+
+func (h *handler) bootstrap(writer http.ResponseWriter, request *http.Request) {
+	if mediaType := strings.TrimSpace(strings.Split(
+		request.Header.Get("Content-Type"),
+		";",
+	)[0]); mediaType != "application/json" {
+		writeAPIError(
+			writer,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type harus application/json.",
+		)
+		return
+	}
+
+	request.Body = http.MaxBytesReader(writer, request.Body, 8<<20)
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	var input bootstrapRequest
+	if err := decoder.Decode(&input); err != nil {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_json",
+			"Request JSON tidak valid.",
+		)
+		return
+	}
+	if err := ensureJSONEnd(decoder); err != nil {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_json",
+			"Request JSON tidak valid.",
+		)
+		return
+	}
+	if input.ProtocolVersion != ProtocolVersion {
+		writeAPIError(
+			writer,
+			http.StatusConflict,
+			"protocol_version_mismatch",
+			"Protocol version tidak didukung.",
+		)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(request.Context(), 30*time.Second)
+	defer cancel()
+	result, err := h.database.Bootstrap(ctx, storage.BootstrapInput{
+		BootstrapID: input.BootstrapID,
+		DeviceID:    input.DeviceID,
+		Bills:       input.Bills,
+		Payments:    input.Payments,
+		CreatedAt:   input.CreatedAt,
+	})
+	if errors.Is(err, storage.ErrInvalidBootstrap) {
+		writeAPIError(
+			writer,
+			http.StatusBadRequest,
+			"invalid_bootstrap",
+			"Snapshot bootstrap tidak valid.",
+		)
+		return
+	}
+	if errors.Is(err, storage.ErrHubNotEmpty) {
+		writeAPIError(
+			writer,
+			http.StatusConflict,
+			"hub_not_empty",
+			"Sync hub sudah pernah menerima data.",
+		)
+		return
+	}
+	if err != nil {
+		writeAPIError(
+			writer,
+			http.StatusServiceUnavailable,
+			"database_unavailable",
+			"Bootstrap belum dapat diproses.",
+		)
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"protocol_version": ProtocolVersion,
+		"bootstrap_id":     result.BootstrapID,
+		"status":           result.Status,
+		"server_sequences": result.ServerSequences,
+	})
 }
 
 func (h *handler) health(writer http.ResponseWriter, request *http.Request) {
