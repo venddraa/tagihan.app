@@ -2114,12 +2114,70 @@ class $SyncStatesTable extends SyncStates
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _bootstrapIdMeta = const VerificationMeta(
+    'bootstrapId',
+  );
+  @override
+  late final GeneratedColumn<String> bootstrapId = GeneratedColumn<String>(
+    'bootstrap_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bootstrapPayloadJsonMeta =
+      const VerificationMeta('bootstrapPayloadJson');
+  @override
+  late final GeneratedColumn<String> bootstrapPayloadJson =
+      GeneratedColumn<String>(
+        'bootstrap_payload_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _bootstrapOutboxSequenceMeta =
+      const VerificationMeta('bootstrapOutboxSequence');
+  @override
+  late final GeneratedColumn<int> bootstrapOutboxSequence =
+      GeneratedColumn<int>(
+        'bootstrap_outbox_sequence',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _bootstrapCreatedAtMsMeta =
+      const VerificationMeta('bootstrapCreatedAtMs');
+  @override
+  late final GeneratedColumn<int> bootstrapCreatedAtMs = GeneratedColumn<int>(
+    'bootstrap_created_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bootstrapCompletedAtMsMeta =
+      const VerificationMeta('bootstrapCompletedAtMs');
+  @override
+  late final GeneratedColumn<int> bootstrapCompletedAtMs = GeneratedColumn<int>(
+    'bootstrap_completed_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     deviceId,
     lastPulledSequence,
     createdAtMs,
+    bootstrapId,
+    bootstrapPayloadJson,
+    bootstrapOutboxSequence,
+    bootstrapCreatedAtMs,
+    bootstrapCompletedAtMs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2164,6 +2222,51 @@ class $SyncStatesTable extends SyncStates
     } else if (isInserting) {
       context.missing(_createdAtMsMeta);
     }
+    if (data.containsKey('bootstrap_id')) {
+      context.handle(
+        _bootstrapIdMeta,
+        bootstrapId.isAcceptableOrUnknown(
+          data['bootstrap_id']!,
+          _bootstrapIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bootstrap_payload_json')) {
+      context.handle(
+        _bootstrapPayloadJsonMeta,
+        bootstrapPayloadJson.isAcceptableOrUnknown(
+          data['bootstrap_payload_json']!,
+          _bootstrapPayloadJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bootstrap_outbox_sequence')) {
+      context.handle(
+        _bootstrapOutboxSequenceMeta,
+        bootstrapOutboxSequence.isAcceptableOrUnknown(
+          data['bootstrap_outbox_sequence']!,
+          _bootstrapOutboxSequenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bootstrap_created_at_ms')) {
+      context.handle(
+        _bootstrapCreatedAtMsMeta,
+        bootstrapCreatedAtMs.isAcceptableOrUnknown(
+          data['bootstrap_created_at_ms']!,
+          _bootstrapCreatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bootstrap_completed_at_ms')) {
+      context.handle(
+        _bootstrapCompletedAtMsMeta,
+        bootstrapCompletedAtMs.isAcceptableOrUnknown(
+          data['bootstrap_completed_at_ms']!,
+          _bootstrapCompletedAtMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2189,6 +2292,26 @@ class $SyncStatesTable extends SyncStates
         DriftSqlType.int,
         data['${effectivePrefix}created_at_ms'],
       )!,
+      bootstrapId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bootstrap_id'],
+      ),
+      bootstrapPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bootstrap_payload_json'],
+      ),
+      bootstrapOutboxSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bootstrap_outbox_sequence'],
+      ),
+      bootstrapCreatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bootstrap_created_at_ms'],
+      ),
+      bootstrapCompletedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bootstrap_completed_at_ms'],
+      ),
     );
   }
 
@@ -2203,11 +2326,21 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
   final String deviceId;
   final int lastPulledSequence;
   final int createdAtMs;
+  final String? bootstrapId;
+  final String? bootstrapPayloadJson;
+  final int? bootstrapOutboxSequence;
+  final int? bootstrapCreatedAtMs;
+  final int? bootstrapCompletedAtMs;
   const SyncStateRow({
     required this.id,
     required this.deviceId,
     required this.lastPulledSequence,
     required this.createdAtMs,
+    this.bootstrapId,
+    this.bootstrapPayloadJson,
+    this.bootstrapOutboxSequence,
+    this.bootstrapCreatedAtMs,
+    this.bootstrapCompletedAtMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2216,6 +2349,21 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     map['device_id'] = Variable<String>(deviceId);
     map['last_pulled_sequence'] = Variable<int>(lastPulledSequence);
     map['created_at_ms'] = Variable<int>(createdAtMs);
+    if (!nullToAbsent || bootstrapId != null) {
+      map['bootstrap_id'] = Variable<String>(bootstrapId);
+    }
+    if (!nullToAbsent || bootstrapPayloadJson != null) {
+      map['bootstrap_payload_json'] = Variable<String>(bootstrapPayloadJson);
+    }
+    if (!nullToAbsent || bootstrapOutboxSequence != null) {
+      map['bootstrap_outbox_sequence'] = Variable<int>(bootstrapOutboxSequence);
+    }
+    if (!nullToAbsent || bootstrapCreatedAtMs != null) {
+      map['bootstrap_created_at_ms'] = Variable<int>(bootstrapCreatedAtMs);
+    }
+    if (!nullToAbsent || bootstrapCompletedAtMs != null) {
+      map['bootstrap_completed_at_ms'] = Variable<int>(bootstrapCompletedAtMs);
+    }
     return map;
   }
 
@@ -2225,6 +2373,21 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       deviceId: Value(deviceId),
       lastPulledSequence: Value(lastPulledSequence),
       createdAtMs: Value(createdAtMs),
+      bootstrapId: bootstrapId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bootstrapId),
+      bootstrapPayloadJson: bootstrapPayloadJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bootstrapPayloadJson),
+      bootstrapOutboxSequence: bootstrapOutboxSequence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bootstrapOutboxSequence),
+      bootstrapCreatedAtMs: bootstrapCreatedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bootstrapCreatedAtMs),
+      bootstrapCompletedAtMs: bootstrapCompletedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bootstrapCompletedAtMs),
     );
   }
 
@@ -2238,6 +2401,19 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       deviceId: serializer.fromJson<String>(json['deviceId']),
       lastPulledSequence: serializer.fromJson<int>(json['lastPulledSequence']),
       createdAtMs: serializer.fromJson<int>(json['createdAtMs']),
+      bootstrapId: serializer.fromJson<String?>(json['bootstrapId']),
+      bootstrapPayloadJson: serializer.fromJson<String?>(
+        json['bootstrapPayloadJson'],
+      ),
+      bootstrapOutboxSequence: serializer.fromJson<int?>(
+        json['bootstrapOutboxSequence'],
+      ),
+      bootstrapCreatedAtMs: serializer.fromJson<int?>(
+        json['bootstrapCreatedAtMs'],
+      ),
+      bootstrapCompletedAtMs: serializer.fromJson<int?>(
+        json['bootstrapCompletedAtMs'],
+      ),
     );
   }
   @override
@@ -2248,6 +2424,13 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       'deviceId': serializer.toJson<String>(deviceId),
       'lastPulledSequence': serializer.toJson<int>(lastPulledSequence),
       'createdAtMs': serializer.toJson<int>(createdAtMs),
+      'bootstrapId': serializer.toJson<String?>(bootstrapId),
+      'bootstrapPayloadJson': serializer.toJson<String?>(bootstrapPayloadJson),
+      'bootstrapOutboxSequence': serializer.toJson<int?>(
+        bootstrapOutboxSequence,
+      ),
+      'bootstrapCreatedAtMs': serializer.toJson<int?>(bootstrapCreatedAtMs),
+      'bootstrapCompletedAtMs': serializer.toJson<int?>(bootstrapCompletedAtMs),
     };
   }
 
@@ -2256,11 +2439,29 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     String? deviceId,
     int? lastPulledSequence,
     int? createdAtMs,
+    Value<String?> bootstrapId = const Value.absent(),
+    Value<String?> bootstrapPayloadJson = const Value.absent(),
+    Value<int?> bootstrapOutboxSequence = const Value.absent(),
+    Value<int?> bootstrapCreatedAtMs = const Value.absent(),
+    Value<int?> bootstrapCompletedAtMs = const Value.absent(),
   }) => SyncStateRow(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
     lastPulledSequence: lastPulledSequence ?? this.lastPulledSequence,
     createdAtMs: createdAtMs ?? this.createdAtMs,
+    bootstrapId: bootstrapId.present ? bootstrapId.value : this.bootstrapId,
+    bootstrapPayloadJson: bootstrapPayloadJson.present
+        ? bootstrapPayloadJson.value
+        : this.bootstrapPayloadJson,
+    bootstrapOutboxSequence: bootstrapOutboxSequence.present
+        ? bootstrapOutboxSequence.value
+        : this.bootstrapOutboxSequence,
+    bootstrapCreatedAtMs: bootstrapCreatedAtMs.present
+        ? bootstrapCreatedAtMs.value
+        : this.bootstrapCreatedAtMs,
+    bootstrapCompletedAtMs: bootstrapCompletedAtMs.present
+        ? bootstrapCompletedAtMs.value
+        : this.bootstrapCompletedAtMs,
   );
   SyncStateRow copyWithCompanion(SyncStatesCompanion data) {
     return SyncStateRow(
@@ -2272,6 +2473,21 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       createdAtMs: data.createdAtMs.present
           ? data.createdAtMs.value
           : this.createdAtMs,
+      bootstrapId: data.bootstrapId.present
+          ? data.bootstrapId.value
+          : this.bootstrapId,
+      bootstrapPayloadJson: data.bootstrapPayloadJson.present
+          ? data.bootstrapPayloadJson.value
+          : this.bootstrapPayloadJson,
+      bootstrapOutboxSequence: data.bootstrapOutboxSequence.present
+          ? data.bootstrapOutboxSequence.value
+          : this.bootstrapOutboxSequence,
+      bootstrapCreatedAtMs: data.bootstrapCreatedAtMs.present
+          ? data.bootstrapCreatedAtMs.value
+          : this.bootstrapCreatedAtMs,
+      bootstrapCompletedAtMs: data.bootstrapCompletedAtMs.present
+          ? data.bootstrapCompletedAtMs.value
+          : this.bootstrapCompletedAtMs,
     );
   }
 
@@ -2281,14 +2497,28 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
           ..write('id: $id, ')
           ..write('deviceId: $deviceId, ')
           ..write('lastPulledSequence: $lastPulledSequence, ')
-          ..write('createdAtMs: $createdAtMs')
+          ..write('createdAtMs: $createdAtMs, ')
+          ..write('bootstrapId: $bootstrapId, ')
+          ..write('bootstrapPayloadJson: $bootstrapPayloadJson, ')
+          ..write('bootstrapOutboxSequence: $bootstrapOutboxSequence, ')
+          ..write('bootstrapCreatedAtMs: $bootstrapCreatedAtMs, ')
+          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, deviceId, lastPulledSequence, createdAtMs);
+  int get hashCode => Object.hash(
+    id,
+    deviceId,
+    lastPulledSequence,
+    createdAtMs,
+    bootstrapId,
+    bootstrapPayloadJson,
+    bootstrapOutboxSequence,
+    bootstrapCreatedAtMs,
+    bootstrapCompletedAtMs,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2296,7 +2526,12 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
           other.id == this.id &&
           other.deviceId == this.deviceId &&
           other.lastPulledSequence == this.lastPulledSequence &&
-          other.createdAtMs == this.createdAtMs);
+          other.createdAtMs == this.createdAtMs &&
+          other.bootstrapId == this.bootstrapId &&
+          other.bootstrapPayloadJson == this.bootstrapPayloadJson &&
+          other.bootstrapOutboxSequence == this.bootstrapOutboxSequence &&
+          other.bootstrapCreatedAtMs == this.bootstrapCreatedAtMs &&
+          other.bootstrapCompletedAtMs == this.bootstrapCompletedAtMs);
 }
 
 class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
@@ -2304,17 +2539,32 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
   final Value<String> deviceId;
   final Value<int> lastPulledSequence;
   final Value<int> createdAtMs;
+  final Value<String?> bootstrapId;
+  final Value<String?> bootstrapPayloadJson;
+  final Value<int?> bootstrapOutboxSequence;
+  final Value<int?> bootstrapCreatedAtMs;
+  final Value<int?> bootstrapCompletedAtMs;
   const SyncStatesCompanion({
     this.id = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.lastPulledSequence = const Value.absent(),
     this.createdAtMs = const Value.absent(),
+    this.bootstrapId = const Value.absent(),
+    this.bootstrapPayloadJson = const Value.absent(),
+    this.bootstrapOutboxSequence = const Value.absent(),
+    this.bootstrapCreatedAtMs = const Value.absent(),
+    this.bootstrapCompletedAtMs = const Value.absent(),
   });
   SyncStatesCompanion.insert({
     this.id = const Value.absent(),
     required String deviceId,
     this.lastPulledSequence = const Value.absent(),
     required int createdAtMs,
+    this.bootstrapId = const Value.absent(),
+    this.bootstrapPayloadJson = const Value.absent(),
+    this.bootstrapOutboxSequence = const Value.absent(),
+    this.bootstrapCreatedAtMs = const Value.absent(),
+    this.bootstrapCompletedAtMs = const Value.absent(),
   }) : deviceId = Value(deviceId),
        createdAtMs = Value(createdAtMs);
   static Insertable<SyncStateRow> custom({
@@ -2322,6 +2572,11 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     Expression<String>? deviceId,
     Expression<int>? lastPulledSequence,
     Expression<int>? createdAtMs,
+    Expression<String>? bootstrapId,
+    Expression<String>? bootstrapPayloadJson,
+    Expression<int>? bootstrapOutboxSequence,
+    Expression<int>? bootstrapCreatedAtMs,
+    Expression<int>? bootstrapCompletedAtMs,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2329,6 +2584,15 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
       if (lastPulledSequence != null)
         'last_pulled_sequence': lastPulledSequence,
       if (createdAtMs != null) 'created_at_ms': createdAtMs,
+      if (bootstrapId != null) 'bootstrap_id': bootstrapId,
+      if (bootstrapPayloadJson != null)
+        'bootstrap_payload_json': bootstrapPayloadJson,
+      if (bootstrapOutboxSequence != null)
+        'bootstrap_outbox_sequence': bootstrapOutboxSequence,
+      if (bootstrapCreatedAtMs != null)
+        'bootstrap_created_at_ms': bootstrapCreatedAtMs,
+      if (bootstrapCompletedAtMs != null)
+        'bootstrap_completed_at_ms': bootstrapCompletedAtMs,
     });
   }
 
@@ -2337,12 +2601,24 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     Value<String>? deviceId,
     Value<int>? lastPulledSequence,
     Value<int>? createdAtMs,
+    Value<String?>? bootstrapId,
+    Value<String?>? bootstrapPayloadJson,
+    Value<int?>? bootstrapOutboxSequence,
+    Value<int?>? bootstrapCreatedAtMs,
+    Value<int?>? bootstrapCompletedAtMs,
   }) {
     return SyncStatesCompanion(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       lastPulledSequence: lastPulledSequence ?? this.lastPulledSequence,
       createdAtMs: createdAtMs ?? this.createdAtMs,
+      bootstrapId: bootstrapId ?? this.bootstrapId,
+      bootstrapPayloadJson: bootstrapPayloadJson ?? this.bootstrapPayloadJson,
+      bootstrapOutboxSequence:
+          bootstrapOutboxSequence ?? this.bootstrapOutboxSequence,
+      bootstrapCreatedAtMs: bootstrapCreatedAtMs ?? this.bootstrapCreatedAtMs,
+      bootstrapCompletedAtMs:
+          bootstrapCompletedAtMs ?? this.bootstrapCompletedAtMs,
     );
   }
 
@@ -2361,6 +2637,29 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     if (createdAtMs.present) {
       map['created_at_ms'] = Variable<int>(createdAtMs.value);
     }
+    if (bootstrapId.present) {
+      map['bootstrap_id'] = Variable<String>(bootstrapId.value);
+    }
+    if (bootstrapPayloadJson.present) {
+      map['bootstrap_payload_json'] = Variable<String>(
+        bootstrapPayloadJson.value,
+      );
+    }
+    if (bootstrapOutboxSequence.present) {
+      map['bootstrap_outbox_sequence'] = Variable<int>(
+        bootstrapOutboxSequence.value,
+      );
+    }
+    if (bootstrapCreatedAtMs.present) {
+      map['bootstrap_created_at_ms'] = Variable<int>(
+        bootstrapCreatedAtMs.value,
+      );
+    }
+    if (bootstrapCompletedAtMs.present) {
+      map['bootstrap_completed_at_ms'] = Variable<int>(
+        bootstrapCompletedAtMs.value,
+      );
+    }
     return map;
   }
 
@@ -2370,7 +2669,12 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
           ..write('id: $id, ')
           ..write('deviceId: $deviceId, ')
           ..write('lastPulledSequence: $lastPulledSequence, ')
-          ..write('createdAtMs: $createdAtMs')
+          ..write('createdAtMs: $createdAtMs, ')
+          ..write('bootstrapId: $bootstrapId, ')
+          ..write('bootstrapPayloadJson: $bootstrapPayloadJson, ')
+          ..write('bootstrapOutboxSequence: $bootstrapOutboxSequence, ')
+          ..write('bootstrapCreatedAtMs: $bootstrapCreatedAtMs, ')
+          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs')
           ..write(')'))
         .toString();
   }
@@ -3905,12 +4209,22 @@ typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
   required String deviceId,
   Value<int> lastPulledSequence,
   required int createdAtMs,
+  Value<String?> bootstrapId,
+  Value<String?> bootstrapPayloadJson,
+  Value<int?> bootstrapOutboxSequence,
+  Value<int?> bootstrapCreatedAtMs,
+  Value<int?> bootstrapCompletedAtMs,
 });
 typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
   Value<int> id,
   Value<String> deviceId,
   Value<int> lastPulledSequence,
   Value<int> createdAtMs,
+  Value<String?> bootstrapId,
+  Value<String?> bootstrapPayloadJson,
+  Value<int?> bootstrapOutboxSequence,
+  Value<int?> bootstrapCreatedAtMs,
+  Value<int?> bootstrapCompletedAtMs,
 });
 
 class $$SyncStatesTableFilterComposer
@@ -3939,6 +4253,31 @@ class $$SyncStatesTableFilterComposer
 
   ColumnFilters<int> get createdAtMs => $composableBuilder(
     column: $table.createdAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bootstrapId => $composableBuilder(
+    column: $table.bootstrapId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bootstrapPayloadJson => $composableBuilder(
+    column: $table.bootstrapPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bootstrapOutboxSequence => $composableBuilder(
+    column: $table.bootstrapOutboxSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bootstrapCreatedAtMs => $composableBuilder(
+    column: $table.bootstrapCreatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bootstrapCompletedAtMs => $composableBuilder(
+    column: $table.bootstrapCompletedAtMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3971,6 +4310,31 @@ class $$SyncStatesTableOrderingComposer
     column: $table.createdAtMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get bootstrapId => $composableBuilder(
+    column: $table.bootstrapId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bootstrapPayloadJson => $composableBuilder(
+    column: $table.bootstrapPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bootstrapOutboxSequence => $composableBuilder(
+    column: $table.bootstrapOutboxSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bootstrapCreatedAtMs => $composableBuilder(
+    column: $table.bootstrapCreatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bootstrapCompletedAtMs => $composableBuilder(
+    column: $table.bootstrapCompletedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncStatesTableAnnotationComposer
@@ -3995,6 +4359,31 @@ class $$SyncStatesTableAnnotationComposer
 
   GeneratedColumn<int> get createdAtMs => $composableBuilder(
     column: $table.createdAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bootstrapId => $composableBuilder(
+    column: $table.bootstrapId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bootstrapPayloadJson => $composableBuilder(
+    column: $table.bootstrapPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bootstrapOutboxSequence => $composableBuilder(
+    column: $table.bootstrapOutboxSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bootstrapCreatedAtMs => $composableBuilder(
+    column: $table.bootstrapCreatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bootstrapCompletedAtMs => $composableBuilder(
+    column: $table.bootstrapCompletedAtMs,
     builder: (column) => column,
   );
 }
@@ -4034,11 +4423,21 @@ class $$SyncStatesTableTableManager
                 Value<String> deviceId = const Value.absent(),
                 Value<int> lastPulledSequence = const Value.absent(),
                 Value<int> createdAtMs = const Value.absent(),
+                Value<String?> bootstrapId = const Value.absent(),
+                Value<String?> bootstrapPayloadJson = const Value.absent(),
+                Value<int?> bootstrapOutboxSequence = const Value.absent(),
+                Value<int?> bootstrapCreatedAtMs = const Value.absent(),
+                Value<int?> bootstrapCompletedAtMs = const Value.absent(),
               }) => SyncStatesCompanion(
                 id: id,
                 deviceId: deviceId,
                 lastPulledSequence: lastPulledSequence,
                 createdAtMs: createdAtMs,
+                bootstrapId: bootstrapId,
+                bootstrapPayloadJson: bootstrapPayloadJson,
+                bootstrapOutboxSequence: bootstrapOutboxSequence,
+                bootstrapCreatedAtMs: bootstrapCreatedAtMs,
+                bootstrapCompletedAtMs: bootstrapCompletedAtMs,
               ),
           createCompanionCallback:
               ({
@@ -4046,11 +4445,21 @@ class $$SyncStatesTableTableManager
                 required String deviceId,
                 Value<int> lastPulledSequence = const Value.absent(),
                 required int createdAtMs,
+                Value<String?> bootstrapId = const Value.absent(),
+                Value<String?> bootstrapPayloadJson = const Value.absent(),
+                Value<int?> bootstrapOutboxSequence = const Value.absent(),
+                Value<int?> bootstrapCreatedAtMs = const Value.absent(),
+                Value<int?> bootstrapCompletedAtMs = const Value.absent(),
               }) => SyncStatesCompanion.insert(
                 id: id,
                 deviceId: deviceId,
                 lastPulledSequence: lastPulledSequence,
                 createdAtMs: createdAtMs,
+                bootstrapId: bootstrapId,
+                bootstrapPayloadJson: bootstrapPayloadJson,
+                bootstrapOutboxSequence: bootstrapOutboxSequence,
+                bootstrapCreatedAtMs: bootstrapCreatedAtMs,
+                bootstrapCompletedAtMs: bootstrapCompletedAtMs,
               ),
           withReferenceMapper: (p0) => p0
               .map(

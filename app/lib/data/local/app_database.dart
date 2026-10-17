@@ -1,5 +1,7 @@
 // ignore_for_file: recursive_getters
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/billing_schedule.dart';
@@ -135,6 +137,16 @@ class SyncStates extends Table {
 
   IntColumn get createdAtMs => integer()();
 
+  TextColumn get bootstrapId => text().nullable()();
+
+  TextColumn get bootstrapPayloadJson => text().nullable()();
+
+  IntColumn get bootstrapOutboxSequence => integer().nullable()();
+
+  IntColumn get bootstrapCreatedAtMs => integer().nullable()();
+
+  IntColumn get bootstrapCompletedAtMs => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 
@@ -169,7 +181,7 @@ final class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -186,6 +198,28 @@ final class AppDatabase extends _$AppDatabase {
         await migrator.createIndex(schema.syncOutboxEntity);
         await migrator.createTable(schema.syncState);
         await migrator.createTable(schema.appliedOperations);
+      },
+      from3To4: (migrator, schema) async {
+        await migrator.addColumn(
+          schema.syncState,
+          schema.syncState.bootstrapId,
+        );
+        await migrator.addColumn(
+          schema.syncState,
+          schema.syncState.bootstrapPayloadJson,
+        );
+        await migrator.addColumn(
+          schema.syncState,
+          schema.syncState.bootstrapOutboxSequence,
+        );
+        await migrator.addColumn(
+          schema.syncState,
+          schema.syncState.bootstrapCreatedAtMs,
+        );
+        await migrator.addColumn(
+          schema.syncState,
+          schema.syncState.bootstrapCompletedAtMs,
+        );
       },
     ),
     beforeOpen: (details) async {
@@ -401,6 +435,112 @@ final class AppDatabase extends _$AppDatabase {
         isUtc: true,
       ),
     );
+  }
+
+  Future<PreparedSyncBootstrap?> prepareSyncBootstrap({DateTime? now}) {
+    final createdAt = (now ?? DateTime.now()).toUtc();
+    return transaction(() async {
+      final state = await select(syncStates).getSingle();
+      if (state.bootstrapCompletedAtMs != null) {
+        return null;
+      }
+      if (state.bootstrapId != null && state.bootstrapPayloadJson != null) {
+        return PreparedSyncBootstrap(
+          bootstrapId: EntityId.fromString(state.bootstrapId!),
+          requestBody: state.bootstrapPayloadJson!,
+        );
+      }
+
+      final billRows = await (select(
+        bills,
+      )..orderBy([(table) => OrderingTerm.asc(table.id)])).get();
+      final paymentRows = await (select(
+        payments,
+      )..orderBy([(table) => OrderingTerm.asc(table.id)])).get();
+      final lastOutboxRow =
+          await (select(syncOutbox)
+                ..orderBy([(table) => OrderingTerm.desc(table.localSequence)])
+                ..limit(1))
+              .getSingleOrNull();
+      final bootstrapId = EntityId.generate(now: createdAt);
+      final requestBody = jsonEncode({
+        'protocol_version': syncProtocolVersion,
+        'bootstrap_id': bootstrapId.value,
+        'device_id': state.deviceId,
+        'bills': billRows
+            .map(_billFromRow)
+            .map(encodeBillSnapshot)
+            .map(jsonDecode)
+            .toList(growable: false),
+        'payments': paymentRows
+            .map(_paymentFromRow)
+            .map(encodePaymentSnapshot)
+            .map(jsonDecode)
+            .toList(growable: false),
+        'created_at': createdAt.toIso8601String(),
+      });
+
+      await (update(syncStates)..where((table) => table.id.equals(1))).write(
+        SyncStatesCompanion(
+          bootstrapId: Value(bootstrapId.value),
+          bootstrapPayloadJson: Value(requestBody),
+          bootstrapOutboxSequence: Value(lastOutboxRow?.localSequence),
+          bootstrapCreatedAtMs: Value(createdAt.millisecondsSinceEpoch),
+        ),
+      );
+      return PreparedSyncBootstrap(
+        bootstrapId: bootstrapId,
+        requestBody: requestBody,
+      );
+    });
+  }
+
+  Future<void> completeSyncBootstrap({
+    required EntityId bootstrapId,
+    required Iterable<int> serverSequences,
+    DateTime? completedAt,
+  }) {
+    final completionTime = (completedAt ?? DateTime.now()).toUtc();
+    return transaction(() async {
+      final state = await select(syncStates).getSingle();
+      if (state.bootstrapCompletedAtMs != null) {
+        if (state.bootstrapId == bootstrapId.value) return;
+        throw StateError('Bootstrap lokal sudah diselesaikan dengan ID lain.');
+      }
+      if (state.bootstrapId != bootstrapId.value ||
+          state.bootstrapPayloadJson == null) {
+        throw StateError('Bootstrap lokal yang akan diselesaikan tidak ada.');
+      }
+
+      final sequenceValues = serverSequences.toList(growable: false);
+      if (sequenceValues.any((sequence) => sequence < 1)) {
+        throw ArgumentError.value(
+          serverSequences,
+          'serverSequences',
+          'Server sequence harus bernilai positif.',
+        );
+      }
+      final latestSequence = sequenceValues.fold<int>(
+        state.lastPulledSequence,
+        (latest, sequence) => sequence > latest ? sequence : latest,
+      );
+      final throughSequence = state.bootstrapOutboxSequence;
+      if (throughSequence != null) {
+        await (delete(syncOutbox)..where(
+              (table) =>
+                  table.localSequence.isSmallerOrEqualValue(throughSequence),
+            ))
+            .go();
+      }
+      await (update(syncStates)..where((table) => table.id.equals(1))).write(
+        SyncStatesCompanion(
+          lastPulledSequence: Value(latestSequence),
+          bootstrapPayloadJson: const Value(null),
+          bootstrapOutboxSequence: const Value(null),
+          bootstrapCompletedAtMs: Value(completionTime.millisecondsSinceEpoch),
+        ),
+      );
+    });
   }
 
   Future<List<PendingSyncOperation>> getPendingSyncOperations({

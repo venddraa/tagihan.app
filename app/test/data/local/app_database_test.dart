@@ -43,7 +43,7 @@ void main() {
         .getSingle();
     final syncState = await database.getLocalSyncState();
 
-    expect(database.schemaVersion, 3);
+    expect(database.schemaVersion, 4);
     expect(billIndexNames, contains('bills_status_next_due_date'));
     expect(billIndexNames, contains('bills_deleted_at_ms'));
     expect(paymentIndexNames, contains('payments_bill_id_due_date'));

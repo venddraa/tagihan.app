@@ -10,6 +10,7 @@ import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
+import 'generated/schema_v4.dart' as v4;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -148,4 +149,33 @@ void main() {
       );
     },
   );
+
+  test('migration from v3 to v4 preserves sync state', () async {
+    const oldSyncState = v3.SyncStateData(
+      id: 1,
+      deviceId: '0199e7d0-0000-7000-8000-000000000001',
+      lastPulledSequence: 7,
+      createdAtMs: 1792195200000,
+    );
+
+    await verifier.testWithDataIntegrity(
+      oldVersion: 3,
+      newVersion: 4,
+      createOld: v3.DatabaseAtV3.new,
+      createNew: v4.DatabaseAtV4.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(oldDb.syncState, oldSyncState);
+      },
+      validateItems: (newDb) async {
+        final states = await newDb.select(newDb.syncState).get();
+        expect(states, hasLength(1));
+        expect(states.single.deviceId, oldSyncState.deviceId);
+        expect(states.single.lastPulledSequence, 7);
+        expect(states.single.bootstrapId, equals(null));
+        expect(states.single.bootstrapPayloadJson, equals(null));
+        expect(states.single.bootstrapCompletedAtMs, equals(null));
+      },
+    );
+  });
 }

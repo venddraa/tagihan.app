@@ -6,8 +6,6 @@ import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/local/sync_operation.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 
-const syncProtocolVersion = 1;
-
 typedef SyncJSONPost = Future<SyncHTTPResponse> Function(Uri uri, String body);
 
 final class SyncHTTPResponse {
@@ -62,7 +60,7 @@ final class SyncPushClient {
     return SyncPushClient._(
       database,
       serviceBaseUri,
-      postJSON ?? _postJSONWithDartIO,
+      postJSON ?? postSyncJSONWithDartIO,
     );
   }
 
@@ -191,7 +189,7 @@ List<_PushResult> _decodeResults(
   }
 }
 
-Future<SyncHTTPResponse> _postJSONWithDartIO(Uri uri, String body) async {
+Future<SyncHTTPResponse> postSyncJSONWithDartIO(Uri uri, String body) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
   try {
     final request = await client

@@ -4,6 +4,8 @@ import 'package:tagihan_vendra/domain/bill.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/payment.dart';
 
+const syncProtocolVersion = 1;
+
 enum SyncEntityType { bill, payment }
 
 enum SyncOperationType {
@@ -65,7 +67,20 @@ final class LocalSyncState {
   final DateTime createdAt;
 }
 
+final class PreparedSyncBootstrap {
+  const PreparedSyncBootstrap({
+    required this.bootstrapId,
+    required this.requestBody,
+  });
+
+  final EntityId bootstrapId;
+  final String requestBody;
+}
+
 String encodeBillSnapshot(Bill bill) => jsonEncode(_billSnapshot(bill));
+
+String encodePaymentSnapshot(Payment payment) =>
+    jsonEncode(_paymentSnapshot(payment));
 
 String encodePaymentRecord({
   required Payment payment,
