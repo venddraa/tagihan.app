@@ -9,6 +9,7 @@ import 'package:tagihan_vendra/domain/money.dart';
 import 'package:tagihan_vendra/domain/payment.dart';
 
 import 'app_database.steps.dart';
+import 'sync_operation.dart';
 
 part 'app_database.g.dart';
 
@@ -89,6 +90,71 @@ class Payments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('SyncOutboxRow')
+@TableIndex(name: 'sync_outbox_entity', columns: {#entityType, #entityId})
+class SyncOutbox extends Table {
+  IntColumn get localSequence => integer().autoIncrement()();
+
+  TextColumn get operationId => text().unique()();
+
+  TextColumn get entityType =>
+      text().check(entityType.isIn(const ['bill', 'payment']))();
+
+  TextColumn get entityId => text()();
+
+  TextColumn get operationType => text().check(
+    operationType.isIn(const [
+      'bill.create',
+      'bill.update',
+      'bill.archive',
+      'payment.record',
+    ]),
+  )();
+
+  IntColumn get baseVersion =>
+      integer().check(baseVersion.isBiggerOrEqualValue(0))();
+
+  TextColumn get payloadJson => text()();
+
+  IntColumn get createdAtMs => integer()();
+
+  @override
+  String get tableName => 'sync_outbox';
+}
+
+@DataClassName('SyncStateRow')
+class SyncStates extends Table {
+  IntColumn get id =>
+      integer().withDefault(const Constant(1)).check(id.equals(1))();
+
+  TextColumn get deviceId => text()();
+
+  IntColumn get lastPulledSequence => integer()
+      .withDefault(const Constant(0))
+      .check(lastPulledSequence.isBiggerOrEqualValue(0))();
+
+  IntColumn get createdAtMs => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'sync_state';
+}
+
+@DataClassName('AppliedOperationRow')
+class AppliedOperations extends Table {
+  TextColumn get operationId => text()();
+
+  IntColumn get serverSequence =>
+      integer().unique().check(serverSequence.isBiggerOrEqualValue(1))();
+
+  IntColumn get appliedAtMs => integer()();
+
+  @override
+  Set<Column> get primaryKey => {operationId};
+}
+
 final class PaymentHistoryEntry {
   const PaymentHistoryEntry({required this.payment, required this.billName});
 
@@ -96,12 +162,14 @@ final class PaymentHistoryEntry {
   final String billName;
 }
 
-@DriftDatabase(tables: [Bills, Payments])
+@DriftDatabase(
+  tables: [Bills, Payments, SyncOutbox, SyncStates, AppliedOperations],
+)
 final class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -113,14 +181,41 @@ final class AppDatabase extends _$AppDatabase {
         await migrator.createIndex(schema.paymentsPaidAtMs);
         await migrator.createIndex(schema.paymentsDeletedAtMs);
       },
+      from2To3: (migrator, schema) async {
+        await migrator.createTable(schema.syncOutbox);
+        await migrator.createIndex(schema.syncOutboxEntity);
+        await migrator.createTable(schema.syncState);
+        await migrator.createTable(schema.appliedOperations);
+      },
     ),
-    beforeOpen: (_) async {
+    beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      if (details.versionNow < 3) {
+        return;
+      }
+      final now = DateTime.now().toUtc();
+      await into(syncStates).insert(
+        SyncStatesCompanion.insert(
+          deviceId: EntityId.generate(now: now).value,
+          createdAtMs: now.millisecondsSinceEpoch,
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
     },
   );
 
   Future<void> insertBill(Bill bill) async {
-    await into(bills).insert(_billToCompanion(bill));
+    await transaction(() async {
+      await into(bills).insert(_billToCompanion(bill));
+      await _enqueueOperation(
+        entityType: SyncEntityType.bill,
+        entityId: bill.id,
+        operationType: SyncOperationType.billCreate,
+        baseVersion: 0,
+        payloadJson: encodeBillSnapshot(bill),
+        createdAt: bill.updatedAt,
+      );
+    });
   }
 
   Future<Bill?> findBillById(EntityId id) async {
@@ -180,13 +275,25 @@ final class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> updateBill(Bill bill) async {
-    final updatedRows =
-        await (update(bills)..where((table) => table.id.equals(bill.id.value)))
-            .write(_billToCompanion(bill));
+    await transaction(() async {
+      final current = await findBillById(bill.id);
+      if (current == null || current.isDeleted) {
+        throw StateError('Tagihan yang akan diperbarui tidak ditemukan.');
+      }
+      if (bill.version != current.version + 1) {
+        throw StateError('Version tagihan tidak berurutan.');
+      }
 
-    if (updatedRows != 1) {
-      throw StateError('Tagihan yang akan diperbarui tidak ditemukan.');
-    }
+      await _updateBillRow(bill);
+      await _enqueueOperation(
+        entityType: SyncEntityType.bill,
+        entityId: bill.id,
+        operationType: SyncOperationType.billUpdate,
+        baseVersion: current.version,
+        payloadJson: encodeBillSnapshot(bill),
+        createdAt: bill.updatedAt,
+      );
+    });
   }
 
   Future<void> archiveBill(EntityId id, DateTime archivedAt) async {
@@ -220,12 +327,16 @@ final class AppDatabase extends _$AppDatabase {
         version: current.version + 1,
       );
 
-      await updateBill(archived);
+      await _updateBillRow(archived);
+      await _enqueueOperation(
+        entityType: SyncEntityType.bill,
+        entityId: archived.id,
+        operationType: SyncOperationType.billArchive,
+        baseVersion: current.version,
+        payloadJson: encodeBillSnapshot(archived),
+        createdAt: archivedAt,
+      );
     });
-  }
-
-  Future<void> insertPayment(Payment payment) async {
-    await into(payments).insert(_paymentToCompanion(payment));
   }
 
   Future<void> recordPayment(Payment payment) async {
@@ -240,30 +351,94 @@ final class AppDatabase extends _$AppDatabase {
         );
       }
 
-      await insertPayment(payment);
-      if (!bill.isActive || payment.dueDate != bill.nextDueDate) return;
+      await into(payments).insert(_paymentToCompanion(payment));
+      var resultingBill = bill;
+      if (bill.isActive && payment.dueDate == bill.nextDueDate) {
+        final nextDueDate = calculateNextDueDate(bill);
+        final changedAt = payment.createdAt.isAfter(bill.updatedAt)
+            ? payment.createdAt
+            : bill.updatedAt;
+        resultingBill = Bill(
+          id: bill.id,
+          name: bill.name,
+          category: bill.category,
+          amount: bill.amount,
+          billingCycle: bill.billingCycle,
+          nextDueDate: nextDueDate ?? bill.nextDueDate,
+          startDate: bill.startDate,
+          status: nextDueDate == null ? BillStatus.archived : bill.status,
+          notes: bill.notes,
+          createdAt: bill.createdAt,
+          updatedAt: changedAt,
+          deletedAt: bill.deletedAt,
+          version: bill.version + 1,
+        );
+        await _updateBillRow(resultingBill);
+      }
 
-      final nextDueDate = calculateNextDueDate(bill);
-      final changedAt = payment.createdAt.isAfter(bill.updatedAt)
-          ? payment.createdAt
-          : bill.updatedAt;
-      final updatedBill = Bill(
-        id: bill.id,
-        name: bill.name,
-        category: bill.category,
-        amount: bill.amount,
-        billingCycle: bill.billingCycle,
-        nextDueDate: nextDueDate ?? bill.nextDueDate,
-        startDate: bill.startDate,
-        status: nextDueDate == null ? BillStatus.archived : bill.status,
-        notes: bill.notes,
-        createdAt: bill.createdAt,
-        updatedAt: changedAt,
-        deletedAt: bill.deletedAt,
-        version: bill.version + 1,
+      await _enqueueOperation(
+        entityType: SyncEntityType.payment,
+        entityId: payment.id,
+        operationType: SyncOperationType.paymentRecord,
+        baseVersion: 0,
+        payloadJson: encodePaymentRecord(
+          payment: payment,
+          bill: resultingBill,
+          billBaseVersion: bill.version,
+        ),
+        createdAt: payment.createdAt,
       );
-      await updateBill(updatedBill);
     });
+  }
+
+  Future<LocalSyncState> getLocalSyncState() async {
+    final row = await select(syncStates).getSingle();
+    return LocalSyncState(
+      deviceId: EntityId.fromString(row.deviceId),
+      lastPulledSequence: row.lastPulledSequence,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        row.createdAtMs,
+        isUtc: true,
+      ),
+    );
+  }
+
+  Future<List<PendingSyncOperation>> getPendingSyncOperations() async {
+    final rows = await (select(
+      syncOutbox,
+    )..orderBy([(table) => OrderingTerm.asc(table.localSequence)])).get();
+    return rows.map(_syncOperationFromRow).toList(growable: false);
+  }
+
+  Future<void> _updateBillRow(Bill bill) async {
+    final updatedRows =
+        await (update(bills)..where((table) => table.id.equals(bill.id.value)))
+            .write(_billToCompanion(bill));
+    if (updatedRows != 1) {
+      throw StateError('Tagihan yang akan diperbarui tidak ditemukan.');
+    }
+  }
+
+  Future<void> _enqueueOperation({
+    required SyncEntityType entityType,
+    required EntityId entityId,
+    required SyncOperationType operationType,
+    required int baseVersion,
+    required String payloadJson,
+    required DateTime createdAt,
+  }) async {
+    final operationId = EntityId.generate(now: createdAt);
+    await into(syncOutbox).insert(
+      SyncOutboxCompanion.insert(
+        operationId: operationId.value,
+        entityType: entityType.name,
+        entityId: entityId.value,
+        operationType: operationType.wireName,
+        baseVersion: baseVersion,
+        payloadJson: payloadJson,
+        createdAtMs: createdAt.millisecondsSinceEpoch,
+      ),
+    );
   }
 
   Future<Payment?> findPaymentById(EntityId id) async {
@@ -302,6 +477,22 @@ final class AppDatabase extends _$AppDatabase {
         )
         .toList(growable: false);
   }
+}
+
+PendingSyncOperation _syncOperationFromRow(SyncOutboxRow row) {
+  return PendingSyncOperation(
+    localSequence: row.localSequence,
+    operationId: EntityId.fromString(row.operationId),
+    entityType: SyncEntityType.values.byName(row.entityType),
+    entityId: EntityId.fromString(row.entityId),
+    operationType: SyncOperationType.fromWireName(row.operationType),
+    baseVersion: row.baseVersion,
+    payloadJson: row.payloadJson,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      row.createdAtMs,
+      isUtc: true,
+    ),
+  );
 }
 
 BillsCompanion _billToCompanion(Bill bill) {

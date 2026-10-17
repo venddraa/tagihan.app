@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
@@ -18,7 +19,7 @@ void main() {
     await database.close();
   });
 
-  test('membuat schema version 2 beserta index', () async {
+  test('membuat schema version 3 beserta index dan sync state', () async {
     final billIndexes = await database
         .customSelect("PRAGMA index_list('bills')")
         .get();
@@ -31,16 +32,25 @@ void main() {
     final paymentIndexNames = paymentIndexes
         .map((row) => row.read<String>('name'))
         .toSet();
+    final syncOutboxIndexes = await database
+        .customSelect("PRAGMA index_list('sync_outbox')")
+        .get();
+    final syncOutboxIndexNames = syncOutboxIndexes
+        .map((row) => row.read<String>('name'))
+        .toSet();
     final foreignKeys = await database
         .customSelect('PRAGMA foreign_keys')
         .getSingle();
+    final syncState = await database.getLocalSyncState();
 
-    expect(database.schemaVersion, 2);
+    expect(database.schemaVersion, 3);
     expect(billIndexNames, contains('bills_status_next_due_date'));
     expect(billIndexNames, contains('bills_deleted_at_ms'));
     expect(paymentIndexNames, contains('payments_bill_id_due_date'));
     expect(paymentIndexNames, contains('payments_paid_at_ms'));
     expect(paymentIndexNames, contains('payments_deleted_at_ms'));
+    expect(syncOutboxIndexNames, contains('sync_outbox_entity'));
+    expect(syncState.lastPulledSequence, 0);
     expect(foreignKeys.read<int>('foreign_keys'), 1);
   });
 
@@ -252,7 +262,7 @@ void main() {
     );
     await database.insertBill(bill);
 
-    await database.insertPayment(payment);
+    await _insertPaymentRow(database, payment);
     final stored = await database.findPaymentById(payment.id);
 
     expect(stored, isNotNull);
@@ -272,7 +282,7 @@ void main() {
     );
 
     await expectLater(
-      database.insertPayment(payment),
+      _insertPaymentRow(database, payment),
       throwsA(isA<Exception>()),
     );
   });
@@ -302,9 +312,9 @@ void main() {
       deletedAt: deletedAt,
     );
 
-    await database.insertPayment(older);
-    await database.insertPayment(deleted);
-    await database.insertPayment(newer);
+    await _insertPaymentRow(database, older);
+    await _insertPaymentRow(database, deleted);
+    await _insertPaymentRow(database, newer);
     final history = await database.getPaymentHistory();
 
     expect(history.map((entry) => entry.payment.id), [newer.id, older.id]);
@@ -514,4 +524,24 @@ Payment _payment({
     deletedAt: deletedAt,
     version: 1,
   );
+}
+
+Future<void> _insertPaymentRow(AppDatabase database, Payment payment) async {
+  await database
+      .into(database.payments)
+      .insert(
+        PaymentsCompanion.insert(
+          id: payment.id.value,
+          billId: payment.billId.value,
+          amountMinorUnits: payment.amount.minorUnits,
+          currency: payment.amount.currency.code,
+          dueDate: payment.dueDate.toString(),
+          paidAtMs: payment.paidAt.millisecondsSinceEpoch,
+          notes: drift.Value(payment.notes),
+          createdAtMs: payment.createdAt.millisecondsSinceEpoch,
+          updatedAtMs: payment.updatedAt.millisecondsSinceEpoch,
+          deletedAtMs: drift.Value(payment.deletedAt?.millisecondsSinceEpoch),
+          version: payment.version,
+        ),
+      );
 }

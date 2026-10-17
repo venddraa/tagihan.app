@@ -9,6 +9,7 @@ import 'generated/schema.dart';
 
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -88,4 +89,63 @@ void main() {
       },
     );
   });
+
+  test(
+    'migration from v2 to v3 preserves bills and creates sync state',
+    () async {
+      const oldBillsData = [
+        v2.BillsData(
+          id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+          name: 'Spotify',
+          category: 'Hiburan',
+          amountMinorUnits: 59990,
+          currency: 'IDR',
+          billingCycle: 'monthly',
+          nextDueDate: '2026-10-25',
+          startDate: '2026-01-25',
+          status: 'active',
+          notes: 'Paket pribadi',
+          createdAtMs: 1790812800000,
+          updatedAtMs: 1790812800000,
+          version: 1,
+        ),
+      ];
+      const expectedNewBillsData = [
+        v3.BillsData(
+          id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+          name: 'Spotify',
+          category: 'Hiburan',
+          amountMinorUnits: 59990,
+          currency: 'IDR',
+          billingCycle: 'monthly',
+          nextDueDate: '2026-10-25',
+          startDate: '2026-01-25',
+          status: 'active',
+          notes: 'Paket pribadi',
+          createdAtMs: 1790812800000,
+          updatedAtMs: 1790812800000,
+          version: 1,
+        ),
+      ];
+
+      await verifier.testWithDataIntegrity(
+        oldVersion: 2,
+        newVersion: 3,
+        createOld: v2.DatabaseAtV2.new,
+        createNew: v3.DatabaseAtV3.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insertAll(oldDb.bills, oldBillsData);
+        },
+        validateItems: (newDb) async {
+          expect(expectedNewBillsData, await newDb.select(newDb.bills).get());
+          expect(await newDb.select(newDb.syncOutbox).get(), isEmpty);
+          expect(await newDb.select(newDb.appliedOperations).get(), isEmpty);
+          final states = await newDb.select(newDb.syncState).get();
+          expect(states, hasLength(1));
+          expect(states.single.lastPulledSequence, 0);
+        },
+      );
+    },
+  );
 }

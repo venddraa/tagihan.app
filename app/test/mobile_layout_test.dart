@@ -84,7 +84,7 @@ void main() {
     final now = DateTime.now().toUtc();
     await tester.runAsync(() async {
       await database.insertBill(bill);
-      await database.insertPayment(
+      await database.recordPayment(
         Payment(
           id: EntityId.generate(),
           billId: bill.id,

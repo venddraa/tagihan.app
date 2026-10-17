@@ -1515,11 +1515,1167 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
   }
 }
 
+class $SyncOutboxTable extends SyncOutbox
+    with TableInfo<$SyncOutboxTable, SyncOutboxRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localSequenceMeta = const VerificationMeta(
+    'localSequence',
+  );
+  @override
+  late final GeneratedColumn<int> localSequence = GeneratedColumn<int>(
+    'local_sequence',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    check: () => entityType.isIn(const ['bill', 'payment']),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationTypeMeta = const VerificationMeta(
+    'operationType',
+  );
+  @override
+  late final GeneratedColumn<String> operationType = GeneratedColumn<String>(
+    'operation_type',
+    aliasedName,
+    false,
+    check: () => operationType.isIn(const [
+      'bill.create',
+      'bill.update',
+      'bill.archive',
+      'payment.record',
+    ]),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _baseVersionMeta = const VerificationMeta(
+    'baseVersion',
+  );
+  @override
+  late final GeneratedColumn<int> baseVersion = GeneratedColumn<int>(
+    'base_version',
+    aliasedName,
+    false,
+    check: () => ComparableExpr(baseVersion).isBiggerOrEqualValue(0),
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMsMeta = const VerificationMeta(
+    'createdAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtMs = GeneratedColumn<int>(
+    'created_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    localSequence,
+    operationId,
+    entityType,
+    entityId,
+    operationType,
+    baseVersion,
+    payloadJson,
+    createdAtMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncOutboxRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_sequence')) {
+      context.handle(
+        _localSequenceMeta,
+        localSequence.isAcceptableOrUnknown(
+          data['local_sequence']!,
+          _localSequenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('operation_type')) {
+      context.handle(
+        _operationTypeMeta,
+        operationType.isAcceptableOrUnknown(
+          data['operation_type']!,
+          _operationTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationTypeMeta);
+    }
+    if (data.containsKey('base_version')) {
+      context.handle(
+        _baseVersionMeta,
+        baseVersion.isAcceptableOrUnknown(
+          data['base_version']!,
+          _baseVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_baseVersionMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('created_at_ms')) {
+      context.handle(
+        _createdAtMsMeta,
+        createdAtMs.isAcceptableOrUnknown(
+          data['created_at_ms']!,
+          _createdAtMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {localSequence};
+  @override
+  SyncOutboxRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncOutboxRow(
+      localSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_sequence'],
+      )!,
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      operationType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_type'],
+      )!,
+      baseVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}base_version'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      createdAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncOutboxTable createAlias(String alias) {
+    return $SyncOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class SyncOutboxRow extends DataClass implements Insertable<SyncOutboxRow> {
+  final int localSequence;
+  final String operationId;
+  final String entityType;
+  final String entityId;
+  final String operationType;
+  final int baseVersion;
+  final String payloadJson;
+  final int createdAtMs;
+  const SyncOutboxRow({
+    required this.localSequence,
+    required this.operationId,
+    required this.entityType,
+    required this.entityId,
+    required this.operationType,
+    required this.baseVersion,
+    required this.payloadJson,
+    required this.createdAtMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_sequence'] = Variable<int>(localSequence);
+    map['operation_id'] = Variable<String>(operationId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['operation_type'] = Variable<String>(operationType);
+    map['base_version'] = Variable<int>(baseVersion);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['created_at_ms'] = Variable<int>(createdAtMs);
+    return map;
+  }
+
+  SyncOutboxCompanion toCompanion(bool nullToAbsent) {
+    return SyncOutboxCompanion(
+      localSequence: Value(localSequence),
+      operationId: Value(operationId),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      operationType: Value(operationType),
+      baseVersion: Value(baseVersion),
+      payloadJson: Value(payloadJson),
+      createdAtMs: Value(createdAtMs),
+    );
+  }
+
+  factory SyncOutboxRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncOutboxRow(
+      localSequence: serializer.fromJson<int>(json['localSequence']),
+      operationId: serializer.fromJson<String>(json['operationId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      operationType: serializer.fromJson<String>(json['operationType']),
+      baseVersion: serializer.fromJson<int>(json['baseVersion']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      createdAtMs: serializer.fromJson<int>(json['createdAtMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localSequence': serializer.toJson<int>(localSequence),
+      'operationId': serializer.toJson<String>(operationId),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'operationType': serializer.toJson<String>(operationType),
+      'baseVersion': serializer.toJson<int>(baseVersion),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'createdAtMs': serializer.toJson<int>(createdAtMs),
+    };
+  }
+
+  SyncOutboxRow copyWith({
+    int? localSequence,
+    String? operationId,
+    String? entityType,
+    String? entityId,
+    String? operationType,
+    int? baseVersion,
+    String? payloadJson,
+    int? createdAtMs,
+  }) => SyncOutboxRow(
+    localSequence: localSequence ?? this.localSequence,
+    operationId: operationId ?? this.operationId,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    operationType: operationType ?? this.operationType,
+    baseVersion: baseVersion ?? this.baseVersion,
+    payloadJson: payloadJson ?? this.payloadJson,
+    createdAtMs: createdAtMs ?? this.createdAtMs,
+  );
+  SyncOutboxRow copyWithCompanion(SyncOutboxCompanion data) {
+    return SyncOutboxRow(
+      localSequence: data.localSequence.present
+          ? data.localSequence.value
+          : this.localSequence,
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      operationType: data.operationType.present
+          ? data.operationType.value
+          : this.operationType,
+      baseVersion: data.baseVersion.present
+          ? data.baseVersion.value
+          : this.baseVersion,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      createdAtMs: data.createdAtMs.present
+          ? data.createdAtMs.value
+          : this.createdAtMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOutboxRow(')
+          ..write('localSequence: $localSequence, ')
+          ..write('operationId: $operationId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operationType: $operationType, ')
+          ..write('baseVersion: $baseVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAtMs: $createdAtMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localSequence,
+    operationId,
+    entityType,
+    entityId,
+    operationType,
+    baseVersion,
+    payloadJson,
+    createdAtMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncOutboxRow &&
+          other.localSequence == this.localSequence &&
+          other.operationId == this.operationId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.operationType == this.operationType &&
+          other.baseVersion == this.baseVersion &&
+          other.payloadJson == this.payloadJson &&
+          other.createdAtMs == this.createdAtMs);
+}
+
+class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxRow> {
+  final Value<int> localSequence;
+  final Value<String> operationId;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> operationType;
+  final Value<int> baseVersion;
+  final Value<String> payloadJson;
+  final Value<int> createdAtMs;
+  const SyncOutboxCompanion({
+    this.localSequence = const Value.absent(),
+    this.operationId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.operationType = const Value.absent(),
+    this.baseVersion = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.createdAtMs = const Value.absent(),
+  });
+  SyncOutboxCompanion.insert({
+    this.localSequence = const Value.absent(),
+    required String operationId,
+    required String entityType,
+    required String entityId,
+    required String operationType,
+    required int baseVersion,
+    required String payloadJson,
+    required int createdAtMs,
+  }) : operationId = Value(operationId),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       operationType = Value(operationType),
+       baseVersion = Value(baseVersion),
+       payloadJson = Value(payloadJson),
+       createdAtMs = Value(createdAtMs);
+  static Insertable<SyncOutboxRow> custom({
+    Expression<int>? localSequence,
+    Expression<String>? operationId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? operationType,
+    Expression<int>? baseVersion,
+    Expression<String>? payloadJson,
+    Expression<int>? createdAtMs,
+  }) {
+    return RawValuesInsertable({
+      if (localSequence != null) 'local_sequence': localSequence,
+      if (operationId != null) 'operation_id': operationId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (operationType != null) 'operation_type': operationType,
+      if (baseVersion != null) 'base_version': baseVersion,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (createdAtMs != null) 'created_at_ms': createdAtMs,
+    });
+  }
+
+  SyncOutboxCompanion copyWith({
+    Value<int>? localSequence,
+    Value<String>? operationId,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? operationType,
+    Value<int>? baseVersion,
+    Value<String>? payloadJson,
+    Value<int>? createdAtMs,
+  }) {
+    return SyncOutboxCompanion(
+      localSequence: localSequence ?? this.localSequence,
+      operationId: operationId ?? this.operationId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      operationType: operationType ?? this.operationType,
+      baseVersion: baseVersion ?? this.baseVersion,
+      payloadJson: payloadJson ?? this.payloadJson,
+      createdAtMs: createdAtMs ?? this.createdAtMs,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localSequence.present) {
+      map['local_sequence'] = Variable<int>(localSequence.value);
+    }
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (operationType.present) {
+      map['operation_type'] = Variable<String>(operationType.value);
+    }
+    if (baseVersion.present) {
+      map['base_version'] = Variable<int>(baseVersion.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (createdAtMs.present) {
+      map['created_at_ms'] = Variable<int>(createdAtMs.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOutboxCompanion(')
+          ..write('localSequence: $localSequence, ')
+          ..write('operationId: $operationId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operationType: $operationType, ')
+          ..write('baseVersion: $baseVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAtMs: $createdAtMs')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncStatesTable extends SyncStates
+    with TableInfo<$SyncStatesTable, SyncStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    check: () => id.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastPulledSequenceMeta =
+      const VerificationMeta('lastPulledSequence');
+  @override
+  late final GeneratedColumn<int> lastPulledSequence = GeneratedColumn<int>(
+    'last_pulled_sequence',
+    aliasedName,
+    false,
+    check: () => ComparableExpr(lastPulledSequence).isBiggerOrEqualValue(0),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMsMeta = const VerificationMeta(
+    'createdAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtMs = GeneratedColumn<int>(
+    'created_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceId,
+    lastPulledSequence,
+    createdAtMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('last_pulled_sequence')) {
+      context.handle(
+        _lastPulledSequenceMeta,
+        lastPulledSequence.isAcceptableOrUnknown(
+          data['last_pulled_sequence']!,
+          _lastPulledSequenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_ms')) {
+      context.handle(
+        _createdAtMsMeta,
+        createdAtMs.isAcceptableOrUnknown(
+          data['created_at_ms']!,
+          _createdAtMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncStateRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      lastPulledSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_pulled_sequence'],
+      )!,
+      createdAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncStatesTable createAlias(String alias) {
+    return $SyncStatesTable(attachedDatabase, alias);
+  }
+}
+
+class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
+  final int id;
+  final String deviceId;
+  final int lastPulledSequence;
+  final int createdAtMs;
+  const SyncStateRow({
+    required this.id,
+    required this.deviceId,
+    required this.lastPulledSequence,
+    required this.createdAtMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['last_pulled_sequence'] = Variable<int>(lastPulledSequence);
+    map['created_at_ms'] = Variable<int>(createdAtMs);
+    return map;
+  }
+
+  SyncStatesCompanion toCompanion(bool nullToAbsent) {
+    return SyncStatesCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      lastPulledSequence: Value(lastPulledSequence),
+      createdAtMs: Value(createdAtMs),
+    );
+  }
+
+  factory SyncStateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncStateRow(
+      id: serializer.fromJson<int>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      lastPulledSequence: serializer.fromJson<int>(json['lastPulledSequence']),
+      createdAtMs: serializer.fromJson<int>(json['createdAtMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'lastPulledSequence': serializer.toJson<int>(lastPulledSequence),
+      'createdAtMs': serializer.toJson<int>(createdAtMs),
+    };
+  }
+
+  SyncStateRow copyWith({
+    int? id,
+    String? deviceId,
+    int? lastPulledSequence,
+    int? createdAtMs,
+  }) => SyncStateRow(
+    id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    lastPulledSequence: lastPulledSequence ?? this.lastPulledSequence,
+    createdAtMs: createdAtMs ?? this.createdAtMs,
+  );
+  SyncStateRow copyWithCompanion(SyncStatesCompanion data) {
+    return SyncStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      lastPulledSequence: data.lastPulledSequence.present
+          ? data.lastPulledSequence.value
+          : this.lastPulledSequence,
+      createdAtMs: data.createdAtMs.present
+          ? data.createdAtMs.value
+          : this.createdAtMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStateRow(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('lastPulledSequence: $lastPulledSequence, ')
+          ..write('createdAtMs: $createdAtMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, deviceId, lastPulledSequence, createdAtMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncStateRow &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.lastPulledSequence == this.lastPulledSequence &&
+          other.createdAtMs == this.createdAtMs);
+}
+
+class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
+  final Value<int> id;
+  final Value<String> deviceId;
+  final Value<int> lastPulledSequence;
+  final Value<int> createdAtMs;
+  const SyncStatesCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.lastPulledSequence = const Value.absent(),
+    this.createdAtMs = const Value.absent(),
+  });
+  SyncStatesCompanion.insert({
+    this.id = const Value.absent(),
+    required String deviceId,
+    this.lastPulledSequence = const Value.absent(),
+    required int createdAtMs,
+  }) : deviceId = Value(deviceId),
+       createdAtMs = Value(createdAtMs);
+  static Insertable<SyncStateRow> custom({
+    Expression<int>? id,
+    Expression<String>? deviceId,
+    Expression<int>? lastPulledSequence,
+    Expression<int>? createdAtMs,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (lastPulledSequence != null)
+        'last_pulled_sequence': lastPulledSequence,
+      if (createdAtMs != null) 'created_at_ms': createdAtMs,
+    });
+  }
+
+  SyncStatesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? deviceId,
+    Value<int>? lastPulledSequence,
+    Value<int>? createdAtMs,
+  }) {
+    return SyncStatesCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      lastPulledSequence: lastPulledSequence ?? this.lastPulledSequence,
+      createdAtMs: createdAtMs ?? this.createdAtMs,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (lastPulledSequence.present) {
+      map['last_pulled_sequence'] = Variable<int>(lastPulledSequence.value);
+    }
+    if (createdAtMs.present) {
+      map['created_at_ms'] = Variable<int>(createdAtMs.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStatesCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('lastPulledSequence: $lastPulledSequence, ')
+          ..write('createdAtMs: $createdAtMs')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppliedOperationsTable extends AppliedOperations
+    with TableInfo<$AppliedOperationsTable, AppliedOperationRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppliedOperationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _serverSequenceMeta = const VerificationMeta(
+    'serverSequence',
+  );
+  @override
+  late final GeneratedColumn<int> serverSequence = GeneratedColumn<int>(
+    'server_sequence',
+    aliasedName,
+    false,
+    check: () => ComparableExpr(serverSequence).isBiggerOrEqualValue(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _appliedAtMsMeta = const VerificationMeta(
+    'appliedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> appliedAtMs = GeneratedColumn<int>(
+    'applied_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    operationId,
+    serverSequence,
+    appliedAtMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'applied_operations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppliedOperationRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('server_sequence')) {
+      context.handle(
+        _serverSequenceMeta,
+        serverSequence.isAcceptableOrUnknown(
+          data['server_sequence']!,
+          _serverSequenceMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_serverSequenceMeta);
+    }
+    if (data.containsKey('applied_at_ms')) {
+      context.handle(
+        _appliedAtMsMeta,
+        appliedAtMs.isAcceptableOrUnknown(
+          data['applied_at_ms']!,
+          _appliedAtMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_appliedAtMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {operationId};
+  @override
+  AppliedOperationRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppliedOperationRow(
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      serverSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}server_sequence'],
+      )!,
+      appliedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}applied_at_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $AppliedOperationsTable createAlias(String alias) {
+    return $AppliedOperationsTable(attachedDatabase, alias);
+  }
+}
+
+class AppliedOperationRow extends DataClass
+    implements Insertable<AppliedOperationRow> {
+  final String operationId;
+  final int serverSequence;
+  final int appliedAtMs;
+  const AppliedOperationRow({
+    required this.operationId,
+    required this.serverSequence,
+    required this.appliedAtMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['operation_id'] = Variable<String>(operationId);
+    map['server_sequence'] = Variable<int>(serverSequence);
+    map['applied_at_ms'] = Variable<int>(appliedAtMs);
+    return map;
+  }
+
+  AppliedOperationsCompanion toCompanion(bool nullToAbsent) {
+    return AppliedOperationsCompanion(
+      operationId: Value(operationId),
+      serverSequence: Value(serverSequence),
+      appliedAtMs: Value(appliedAtMs),
+    );
+  }
+
+  factory AppliedOperationRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppliedOperationRow(
+      operationId: serializer.fromJson<String>(json['operationId']),
+      serverSequence: serializer.fromJson<int>(json['serverSequence']),
+      appliedAtMs: serializer.fromJson<int>(json['appliedAtMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'operationId': serializer.toJson<String>(operationId),
+      'serverSequence': serializer.toJson<int>(serverSequence),
+      'appliedAtMs': serializer.toJson<int>(appliedAtMs),
+    };
+  }
+
+  AppliedOperationRow copyWith({
+    String? operationId,
+    int? serverSequence,
+    int? appliedAtMs,
+  }) => AppliedOperationRow(
+    operationId: operationId ?? this.operationId,
+    serverSequence: serverSequence ?? this.serverSequence,
+    appliedAtMs: appliedAtMs ?? this.appliedAtMs,
+  );
+  AppliedOperationRow copyWithCompanion(AppliedOperationsCompanion data) {
+    return AppliedOperationRow(
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      serverSequence: data.serverSequence.present
+          ? data.serverSequence.value
+          : this.serverSequence,
+      appliedAtMs: data.appliedAtMs.present
+          ? data.appliedAtMs.value
+          : this.appliedAtMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppliedOperationRow(')
+          ..write('operationId: $operationId, ')
+          ..write('serverSequence: $serverSequence, ')
+          ..write('appliedAtMs: $appliedAtMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(operationId, serverSequence, appliedAtMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppliedOperationRow &&
+          other.operationId == this.operationId &&
+          other.serverSequence == this.serverSequence &&
+          other.appliedAtMs == this.appliedAtMs);
+}
+
+class AppliedOperationsCompanion extends UpdateCompanion<AppliedOperationRow> {
+  final Value<String> operationId;
+  final Value<int> serverSequence;
+  final Value<int> appliedAtMs;
+  final Value<int> rowid;
+  const AppliedOperationsCompanion({
+    this.operationId = const Value.absent(),
+    this.serverSequence = const Value.absent(),
+    this.appliedAtMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppliedOperationsCompanion.insert({
+    required String operationId,
+    required int serverSequence,
+    required int appliedAtMs,
+    this.rowid = const Value.absent(),
+  }) : operationId = Value(operationId),
+       serverSequence = Value(serverSequence),
+       appliedAtMs = Value(appliedAtMs);
+  static Insertable<AppliedOperationRow> custom({
+    Expression<String>? operationId,
+    Expression<int>? serverSequence,
+    Expression<int>? appliedAtMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (operationId != null) 'operation_id': operationId,
+      if (serverSequence != null) 'server_sequence': serverSequence,
+      if (appliedAtMs != null) 'applied_at_ms': appliedAtMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppliedOperationsCompanion copyWith({
+    Value<String>? operationId,
+    Value<int>? serverSequence,
+    Value<int>? appliedAtMs,
+    Value<int>? rowid,
+  }) {
+    return AppliedOperationsCompanion(
+      operationId: operationId ?? this.operationId,
+      serverSequence: serverSequence ?? this.serverSequence,
+      appliedAtMs: appliedAtMs ?? this.appliedAtMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (serverSequence.present) {
+      map['server_sequence'] = Variable<int>(serverSequence.value);
+    }
+    if (appliedAtMs.present) {
+      map['applied_at_ms'] = Variable<int>(appliedAtMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppliedOperationsCompanion(')
+          ..write('operationId: $operationId, ')
+          ..write('serverSequence: $serverSequence, ')
+          ..write('appliedAtMs: $appliedAtMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $BillsTable bills = $BillsTable(this);
   late final $PaymentsTable payments = $PaymentsTable(this);
+  late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
+  late final $SyncStatesTable syncStates = $SyncStatesTable(this);
+  late final $AppliedOperationsTable appliedOperations =
+      $AppliedOperationsTable(this);
   late final Index billsStatusNextDueDate = Index(
     'bills_status_next_due_date',
     'CREATE INDEX bills_status_next_due_date ON bills (status, next_due_date)',
@@ -1540,6 +2696,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'payments_deleted_at_ms',
     'CREATE INDEX payments_deleted_at_ms ON payments (deleted_at_ms)',
   );
+  late final Index syncOutboxEntity = Index(
+    'sync_outbox_entity',
+    'CREATE INDEX sync_outbox_entity ON sync_outbox (entity_type, entity_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1547,11 +2707,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     bills,
     payments,
+    syncOutbox,
+    syncStates,
+    appliedOperations,
     billsStatusNextDueDate,
     billsDeletedAtMs,
     paymentsBillIdDueDate,
     paymentsPaidAtMs,
     paymentsDeletedAtMs,
+    syncOutboxEntity,
   ];
 }
 
@@ -2464,6 +3628,656 @@ typedef $$PaymentsTableProcessedTableManager =
       PaymentRow,
       PrefetchHooks Function({bool billId})
     >;
+typedef $$SyncOutboxTableCreateCompanionBuilder = SyncOutboxCompanion Function({
+  Value<int> localSequence,
+  required String operationId,
+  required String entityType,
+  required String entityId,
+  required String operationType,
+  required int baseVersion,
+  required String payloadJson,
+  required int createdAtMs,
+});
+typedef $$SyncOutboxTableUpdateCompanionBuilder = SyncOutboxCompanion Function({
+  Value<int> localSequence,
+  Value<String> operationId,
+  Value<String> entityType,
+  Value<String> entityId,
+  Value<String> operationType,
+  Value<int> baseVersion,
+  Value<String> payloadJson,
+  Value<int> createdAtMs,
+});
+
+class $$SyncOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get localSequence => $composableBuilder(
+    column: $table.localSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationType => $composableBuilder(
+    column: $table.operationType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get baseVersion => $composableBuilder(
+    column: $table.baseVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get localSequence => $composableBuilder(
+    column: $table.localSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationType => $composableBuilder(
+    column: $table.operationType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get baseVersion => $composableBuilder(
+    column: $table.baseVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get localSequence => $composableBuilder(
+    column: $table.localSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get operationType => $composableBuilder(
+    column: $table.operationType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get baseVersion => $composableBuilder(
+    column: $table.baseVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncOutboxTable,
+          SyncOutboxRow,
+          $$SyncOutboxTableFilterComposer,
+          $$SyncOutboxTableOrderingComposer,
+          $$SyncOutboxTableAnnotationComposer,
+          $$SyncOutboxTableCreateCompanionBuilder,
+          $$SyncOutboxTableUpdateCompanionBuilder,
+          (
+            SyncOutboxRow,
+            BaseReferences<_$AppDatabase, $SyncOutboxTable, SyncOutboxRow>,
+          ),
+          SyncOutboxRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncOutboxTableTableManager(_$AppDatabase db, $SyncOutboxTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncOutboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncOutboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncOutboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> localSequence = const Value.absent(),
+                Value<String> operationId = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> operationType = const Value.absent(),
+                Value<int> baseVersion = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> createdAtMs = const Value.absent(),
+              }) => SyncOutboxCompanion(
+                localSequence: localSequence,
+                operationId: operationId,
+                entityType: entityType,
+                entityId: entityId,
+                operationType: operationType,
+                baseVersion: baseVersion,
+                payloadJson: payloadJson,
+                createdAtMs: createdAtMs,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> localSequence = const Value.absent(),
+                required String operationId,
+                required String entityType,
+                required String entityId,
+                required String operationType,
+                required int baseVersion,
+                required String payloadJson,
+                required int createdAtMs,
+              }) => SyncOutboxCompanion.insert(
+                localSequence: localSequence,
+                operationId: operationId,
+                entityType: entityType,
+                entityId: entityId,
+                operationType: operationType,
+                baseVersion: baseVersion,
+                payloadJson: payloadJson,
+                createdAtMs: createdAtMs,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncOutboxTable, SyncOutboxRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncOutboxTable,
+                    SyncOutboxRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncOutboxTable,
+      SyncOutboxRow,
+      $$SyncOutboxTableFilterComposer,
+      $$SyncOutboxTableOrderingComposer,
+      $$SyncOutboxTableAnnotationComposer,
+      $$SyncOutboxTableCreateCompanionBuilder,
+      $$SyncOutboxTableUpdateCompanionBuilder,
+      (
+        SyncOutboxRow,
+        BaseReferences<_$AppDatabase, $SyncOutboxTable, SyncOutboxRow>,
+      ),
+      SyncOutboxRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
+  Value<int> id,
+  required String deviceId,
+  Value<int> lastPulledSequence,
+  required int createdAtMs,
+});
+typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
+  Value<int> id,
+  Value<String> deviceId,
+  Value<int> lastPulledSequence,
+  Value<int> createdAtMs,
+});
+
+class $$SyncStatesTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastPulledSequence => $composableBuilder(
+    column: $table.lastPulledSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncStatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastPulledSequence => $composableBuilder(
+    column: $table.lastPulledSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncStatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPulledSequence => $composableBuilder(
+    column: $table.lastPulledSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtMs => $composableBuilder(
+    column: $table.createdAtMs,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncStatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncStatesTable,
+          SyncStateRow,
+          $$SyncStatesTableFilterComposer,
+          $$SyncStatesTableOrderingComposer,
+          $$SyncStatesTableAnnotationComposer,
+          $$SyncStatesTableCreateCompanionBuilder,
+          $$SyncStatesTableUpdateCompanionBuilder,
+          (
+            SyncStateRow,
+            BaseReferences<_$AppDatabase, $SyncStatesTable, SyncStateRow>,
+          ),
+          SyncStateRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncStatesTableTableManager(_$AppDatabase db, $SyncStatesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncStatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncStatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncStatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> lastPulledSequence = const Value.absent(),
+                Value<int> createdAtMs = const Value.absent(),
+              }) => SyncStatesCompanion(
+                id: id,
+                deviceId: deviceId,
+                lastPulledSequence: lastPulledSequence,
+                createdAtMs: createdAtMs,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String deviceId,
+                Value<int> lastPulledSequence = const Value.absent(),
+                required int createdAtMs,
+              }) => SyncStatesCompanion.insert(
+                id: id,
+                deviceId: deviceId,
+                lastPulledSequence: lastPulledSequence,
+                createdAtMs: createdAtMs,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncStatesTable, SyncStateRow>(table),
+                  BaseReferences<_$AppDatabase, $SyncStatesTable, SyncStateRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncStatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncStatesTable,
+      SyncStateRow,
+      $$SyncStatesTableFilterComposer,
+      $$SyncStatesTableOrderingComposer,
+      $$SyncStatesTableAnnotationComposer,
+      $$SyncStatesTableCreateCompanionBuilder,
+      $$SyncStatesTableUpdateCompanionBuilder,
+      (
+        SyncStateRow,
+        BaseReferences<_$AppDatabase, $SyncStatesTable, SyncStateRow>,
+      ),
+      SyncStateRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AppliedOperationsTableCreateCompanionBuilder =
+    AppliedOperationsCompanion Function({
+      required String operationId,
+      required int serverSequence,
+      required int appliedAtMs,
+      Value<int> rowid,
+    });
+typedef $$AppliedOperationsTableUpdateCompanionBuilder =
+    AppliedOperationsCompanion Function({
+      Value<String> operationId,
+      Value<int> serverSequence,
+      Value<int> appliedAtMs,
+      Value<int> rowid,
+    });
+
+class $$AppliedOperationsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppliedOperationsTable> {
+  $$AppliedOperationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get serverSequence => $composableBuilder(
+    column: $table.serverSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get appliedAtMs => $composableBuilder(
+    column: $table.appliedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppliedOperationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppliedOperationsTable> {
+  $$AppliedOperationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get serverSequence => $composableBuilder(
+    column: $table.serverSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get appliedAtMs => $composableBuilder(
+    column: $table.appliedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppliedOperationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppliedOperationsTable> {
+  $$AppliedOperationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get serverSequence => $composableBuilder(
+    column: $table.serverSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get appliedAtMs => $composableBuilder(
+    column: $table.appliedAtMs,
+    builder: (column) => column,
+  );
+}
+
+class $$AppliedOperationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppliedOperationsTable,
+          AppliedOperationRow,
+          $$AppliedOperationsTableFilterComposer,
+          $$AppliedOperationsTableOrderingComposer,
+          $$AppliedOperationsTableAnnotationComposer,
+          $$AppliedOperationsTableCreateCompanionBuilder,
+          $$AppliedOperationsTableUpdateCompanionBuilder,
+          (
+            AppliedOperationRow,
+            BaseReferences<
+              _$AppDatabase,
+              $AppliedOperationsTable,
+              AppliedOperationRow
+            >,
+          ),
+          AppliedOperationRow,
+          PrefetchHooks Function()
+        > {
+  $$AppliedOperationsTableTableManager(
+    _$AppDatabase db,
+    $AppliedOperationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppliedOperationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppliedOperationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppliedOperationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> operationId = const Value.absent(),
+                Value<int> serverSequence = const Value.absent(),
+                Value<int> appliedAtMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppliedOperationsCompanion(
+                operationId: operationId,
+                serverSequence: serverSequence,
+                appliedAtMs: appliedAtMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String operationId,
+                required int serverSequence,
+                required int appliedAtMs,
+                Value<int> rowid = const Value.absent(),
+              }) => AppliedOperationsCompanion.insert(
+                operationId: operationId,
+                serverSequence: serverSequence,
+                appliedAtMs: appliedAtMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppliedOperationsTable, AppliedOperationRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $AppliedOperationsTable,
+                    AppliedOperationRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppliedOperationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppliedOperationsTable,
+      AppliedOperationRow,
+      $$AppliedOperationsTableFilterComposer,
+      $$AppliedOperationsTableOrderingComposer,
+      $$AppliedOperationsTableAnnotationComposer,
+      $$AppliedOperationsTableCreateCompanionBuilder,
+      $$AppliedOperationsTableUpdateCompanionBuilder,
+      (
+        AppliedOperationRow,
+        BaseReferences<
+          _$AppDatabase,
+          $AppliedOperationsTable,
+          AppliedOperationRow
+        >,
+      ),
+      AppliedOperationRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2472,4 +4286,10 @@ class $AppDatabaseManager {
       $$BillsTableTableManager(_db, _db.bills);
   $$PaymentsTableTableManager get payments =>
       $$PaymentsTableTableManager(_db, _db.payments);
+  $$SyncOutboxTableTableManager get syncOutbox =>
+      $$SyncOutboxTableTableManager(_db, _db.syncOutbox);
+  $$SyncStatesTableTableManager get syncStates =>
+      $$SyncStatesTableTableManager(_db, _db.syncStates);
+  $$AppliedOperationsTableTableManager get appliedOperations =>
+      $$AppliedOperationsTableTableManager(_db, _db.appliedOperations);
 }
