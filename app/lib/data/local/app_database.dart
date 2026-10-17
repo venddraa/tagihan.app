@@ -155,16 +155,69 @@ class SyncStates extends Table {
 }
 
 @DataClassName('AppliedOperationRow')
+@TableIndex(name: 'applied_operations_operation', columns: {#operationId})
 class AppliedOperations extends Table {
   TextColumn get operationId => text()();
 
   IntColumn get serverSequence =>
-      integer().unique().check(serverSequence.isBiggerOrEqualValue(1))();
+      integer().check(serverSequence.isBiggerOrEqualValue(1))();
+
+  TextColumn get entityType =>
+      text().check(entityType.isIn(const ['bill', 'payment']))();
+
+  TextColumn get entityId => text()();
+
+  IntColumn get version => integer().check(version.isBiggerOrEqualValue(1))();
 
   IntColumn get appliedAtMs => integer()();
 
   @override
-  Set<Column> get primaryKey => {operationId};
+  Set<Column> get primaryKey => {serverSequence};
+}
+
+@DataClassName('SyncConflictRow')
+@TableIndex(
+  name: 'sync_conflicts_entity',
+  columns: {#entityType, #entityId, #resolvedAtMs},
+)
+class SyncConflicts extends Table {
+  IntColumn get serverSequence =>
+      integer().check(serverSequence.isBiggerOrEqualValue(1))();
+
+  TextColumn get operationId => text()();
+
+  TextColumn get entityType =>
+      text().check(entityType.isIn(const ['bill', 'payment']))();
+
+  TextColumn get entityId => text()();
+
+  TextColumn get reason => text().check(
+    reason.isIn(const [
+      'pending_local_change',
+      'same_version_different_payload',
+      'version_gap',
+      'operation_conflict',
+    ]),
+  )();
+
+  IntColumn get localVersion => integer().nullable()();
+
+  IntColumn get remoteVersion =>
+      integer().check(remoteVersion.isBiggerOrEqualValue(1))();
+
+  TextColumn get localPayloadJson => text().nullable()();
+
+  TextColumn get remotePayloadJson => text()();
+
+  IntColumn get detectedAtMs => integer()();
+
+  IntColumn get resolvedAtMs => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {serverSequence};
+
+  @override
+  String get tableName => 'sync_conflicts';
 }
 
 final class PaymentHistoryEntry {
@@ -175,13 +228,20 @@ final class PaymentHistoryEntry {
 }
 
 @DriftDatabase(
-  tables: [Bills, Payments, SyncOutbox, SyncStates, AppliedOperations],
+  tables: [
+    Bills,
+    Payments,
+    SyncOutbox,
+    SyncStates,
+    AppliedOperations,
+    SyncConflicts,
+  ],
 )
 final class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -220,6 +280,15 @@ final class AppDatabase extends _$AppDatabase {
           schema.syncState,
           schema.syncState.bootstrapCompletedAtMs,
         );
+      },
+      from4To5: (migrator, schema) async {
+        // Belum ada code sebelum v5 yang menulis tabel ini. Tabel dibuat ulang
+        // agar satu operation dapat mencatat beberapa server sequence.
+        await migrator.deleteTable('applied_operations');
+        await migrator.createTable(schema.appliedOperations);
+        await migrator.createIndex(schema.appliedOperationsOperation);
+        await migrator.createTable(schema.syncConflicts);
+        await migrator.createIndex(schema.syncConflictsEntity);
       },
     ),
     beforeOpen: (details) async {
@@ -543,6 +612,424 @@ final class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<SyncApplySummary> applyRemoteSyncPage({
+    required List<RemoteSyncChange> changes,
+    required int nextCursor,
+    DateTime? appliedAt,
+  }) {
+    final applicationTime = (appliedAt ?? DateTime.now()).toUtc();
+    return transaction(() async {
+      final state = await select(syncStates).getSingle();
+      _validateRemotePage(
+        changes,
+        currentCursor: state.lastPulledSequence,
+        nextCursor: nextCursor,
+      );
+      final pendingImpacts = await _pendingSyncImpacts();
+      final blockedChanges = await _blockedRemoteOperationChanges(
+        changes,
+        pendingImpacts,
+      );
+      var applied = 0;
+      var ignored = 0;
+      var conflicts = 0;
+
+      for (final change in changes) {
+        final prior =
+            await (select(appliedOperations)..where(
+                  (table) => table.serverSequence.equals(change.serverSequence),
+                ))
+                .getSingleOrNull();
+        if (prior != null) {
+          if (prior.operationId != change.operationId.value ||
+              prior.entityType != change.entityType.name ||
+              prior.entityId != change.entityId.value ||
+              prior.version != change.version) {
+            throw StateError(
+              'Server sequence sudah dipakai oleh change yang berbeda.',
+            );
+          }
+          ignored++;
+          continue;
+        }
+
+        final blockedReason = blockedChanges[change.serverSequence];
+        final decision = blockedReason == null
+            ? switch (change.entityType) {
+                SyncEntityType.bill => await _applyRemoteBill(
+                  change,
+                  pendingImpacts[_syncEntityKey(
+                        change.entityType,
+                        change.entityId,
+                      )] ??
+                      const [],
+                  applicationTime,
+                ),
+                SyncEntityType.payment => await _applyRemotePayment(
+                  change,
+                  pendingImpacts[_syncEntityKey(
+                        change.entityType,
+                        change.entityId,
+                      )] ??
+                      const [],
+                  applicationTime,
+                ),
+              }
+            : await _recordBlockedRemoteConflict(
+                change,
+                blockedReason,
+                applicationTime,
+              );
+        switch (decision) {
+          case _RemoteApplyDecision.applied:
+            applied++;
+          case _RemoteApplyDecision.ignored:
+            ignored++;
+          case _RemoteApplyDecision.conflict:
+            conflicts++;
+        }
+
+        await into(appliedOperations).insert(
+          AppliedOperationsCompanion.insert(
+            operationId: change.operationId.value,
+            serverSequence: Value(change.serverSequence),
+            entityType: change.entityType.name,
+            entityId: change.entityId.value,
+            version: change.version,
+            appliedAtMs: applicationTime.millisecondsSinceEpoch,
+          ),
+        );
+      }
+
+      await (update(syncStates)..where((table) => table.id.equals(1))).write(
+        SyncStatesCompanion(lastPulledSequence: Value(nextCursor)),
+      );
+      return SyncApplySummary(
+        applied: applied,
+        ignored: ignored,
+        conflicts: conflicts,
+        nextCursor: nextCursor,
+      );
+    });
+  }
+
+  Future<_RemoteApplyDecision> _applyRemoteBill(
+    RemoteSyncChange change,
+    List<_PendingSyncImpact> pending,
+    DateTime detectedAt,
+  ) async {
+    final remote = decodeBillSnapshot(change.payload);
+    if (remote.id != change.entityId || remote.version != change.version) {
+      throw const FormatException('Metadata change Bill tidak sesuai payload.');
+    }
+    final local = await findBillById(change.entityId);
+    final earlyDecision = await _resolvePendingOrOlderChange(
+      change: change,
+      pending: pending,
+      localVersion: local?.version,
+      localPayloadJson: local == null ? null : encodeBillSnapshot(local),
+      remotePayloadJson: encodeBillSnapshot(remote),
+      snapshotsEqual:
+          local != null &&
+          encodeBillSnapshot(local) == encodeBillSnapshot(remote),
+      detectedAt: detectedAt,
+    );
+    if (earlyDecision != null) return earlyDecision;
+
+    if (local == null) {
+      await into(bills).insert(_billToCompanion(remote));
+      return _RemoteApplyDecision.applied;
+    }
+    if (remote.version == local.version + 1) {
+      await _updateBillRow(remote);
+      return _RemoteApplyDecision.applied;
+    }
+    return _recordRemoteConflict(
+      change: change,
+      reason: 'version_gap',
+      localVersion: local.version,
+      localPayloadJson: encodeBillSnapshot(local),
+      remotePayloadJson: encodeBillSnapshot(remote),
+      detectedAt: detectedAt,
+    );
+  }
+
+  Future<Map<int, String>> _blockedRemoteOperationChanges(
+    List<RemoteSyncChange> changes,
+    Map<String, List<_PendingSyncImpact>> pendingImpacts,
+  ) async {
+    final groups = <EntityId, List<RemoteSyncChange>>{};
+    for (final change in changes) {
+      groups.putIfAbsent(change.operationId, () => []).add(change);
+    }
+    final blocked = <int, String>{};
+    for (final group in groups.values.where((value) => value.length > 1)) {
+      final reasons = <int, String?>{};
+      for (final change in group) {
+        reasons[change.serverSequence] = await _previewRemoteConflictReason(
+          change,
+          pendingImpacts[_syncEntityKey(change.entityType, change.entityId)] ??
+              const [],
+        );
+      }
+      if (reasons.values.every((reason) => reason == null)) continue;
+      for (final change in group) {
+        blocked[change.serverSequence] =
+            reasons[change.serverSequence] ?? 'operation_conflict';
+      }
+    }
+    return blocked;
+  }
+
+  Future<String?> _previewRemoteConflictReason(
+    RemoteSyncChange change,
+    List<_PendingSyncImpact> pending,
+  ) async {
+    final snapshot = await _remoteSnapshotContext(change);
+    if (pending.isNotEmpty) {
+      final sameOperation = pending.any(
+        (impact) => impact.operationId == change.operationId,
+      );
+      final earliestBaseVersion = pending
+          .map((impact) => impact.baseVersion)
+          .reduce((first, second) => first < second ? first : second);
+      if ((sameOperation || change.version <= earliestBaseVersion) &&
+          snapshot.localVersion != null &&
+          snapshot.localVersion! >= change.version) {
+        return null;
+      }
+      return 'pending_local_change';
+    }
+    if (snapshot.localVersion == null ||
+        change.version < snapshot.localVersion!) {
+      return null;
+    }
+    if (change.version == snapshot.localVersion) {
+      return snapshot.localPayloadJson == snapshot.remotePayloadJson
+          ? null
+          : 'same_version_different_payload';
+    }
+    if (change.version == snapshot.localVersion! + 1) return null;
+    return 'version_gap';
+  }
+
+  Future<_RemoteApplyDecision> _recordBlockedRemoteConflict(
+    RemoteSyncChange change,
+    String reason,
+    DateTime detectedAt,
+  ) async {
+    final snapshot = await _remoteSnapshotContext(change);
+    return _recordRemoteConflict(
+      change: change,
+      reason: reason,
+      localVersion: snapshot.localVersion,
+      localPayloadJson: snapshot.localPayloadJson,
+      remotePayloadJson: snapshot.remotePayloadJson,
+      detectedAt: detectedAt,
+    );
+  }
+
+  Future<_RemoteSnapshotContext> _remoteSnapshotContext(
+    RemoteSyncChange change,
+  ) async {
+    switch (change.entityType) {
+      case SyncEntityType.bill:
+        final remote = decodeBillSnapshot(change.payload);
+        final local = await findBillById(change.entityId);
+        return _RemoteSnapshotContext(
+          localVersion: local?.version,
+          localPayloadJson: local == null ? null : encodeBillSnapshot(local),
+          remotePayloadJson: encodeBillSnapshot(remote),
+        );
+      case SyncEntityType.payment:
+        final remote = decodePaymentSnapshot(change.payload);
+        final local = await findPaymentById(change.entityId);
+        return _RemoteSnapshotContext(
+          localVersion: local?.version,
+          localPayloadJson: local == null ? null : encodePaymentSnapshot(local),
+          remotePayloadJson: encodePaymentSnapshot(remote),
+        );
+    }
+  }
+
+  Future<_RemoteApplyDecision> _applyRemotePayment(
+    RemoteSyncChange change,
+    List<_PendingSyncImpact> pending,
+    DateTime detectedAt,
+  ) async {
+    final remote = decodePaymentSnapshot(change.payload);
+    if (remote.id != change.entityId || remote.version != change.version) {
+      throw const FormatException(
+        'Metadata change Payment tidak sesuai payload.',
+      );
+    }
+    final local = await findPaymentById(change.entityId);
+    final earlyDecision = await _resolvePendingOrOlderChange(
+      change: change,
+      pending: pending,
+      localVersion: local?.version,
+      localPayloadJson: local == null ? null : encodePaymentSnapshot(local),
+      remotePayloadJson: encodePaymentSnapshot(remote),
+      snapshotsEqual:
+          local != null &&
+          encodePaymentSnapshot(local) == encodePaymentSnapshot(remote),
+      detectedAt: detectedAt,
+    );
+    if (earlyDecision != null) return earlyDecision;
+
+    final bill = await findBillById(remote.billId);
+    if (bill == null) {
+      throw StateError('Bill untuk Payment remote belum tersedia.');
+    }
+    if (local == null) {
+      await into(payments).insert(_paymentToCompanion(remote));
+      return _RemoteApplyDecision.applied;
+    }
+    if (remote.version == local.version + 1) {
+      final updatedRows =
+          await (update(payments)
+                ..where((table) => table.id.equals(remote.id.value)))
+              .write(_paymentToCompanion(remote));
+      if (updatedRows != 1) {
+        throw StateError('Payment remote tidak dapat diperbarui.');
+      }
+      return _RemoteApplyDecision.applied;
+    }
+    return _recordRemoteConflict(
+      change: change,
+      reason: 'version_gap',
+      localVersion: local.version,
+      localPayloadJson: encodePaymentSnapshot(local),
+      remotePayloadJson: encodePaymentSnapshot(remote),
+      detectedAt: detectedAt,
+    );
+  }
+
+  Future<_RemoteApplyDecision?> _resolvePendingOrOlderChange({
+    required RemoteSyncChange change,
+    required List<_PendingSyncImpact> pending,
+    required int? localVersion,
+    required String? localPayloadJson,
+    required String remotePayloadJson,
+    required bool snapshotsEqual,
+    required DateTime detectedAt,
+  }) async {
+    if (pending.isNotEmpty) {
+      final sameOperation = pending.any(
+        (impact) => impact.operationId == change.operationId,
+      );
+      final earliestBaseVersion = pending
+          .map((impact) => impact.baseVersion)
+          .reduce((first, second) => first < second ? first : second);
+      if ((sameOperation || change.version <= earliestBaseVersion) &&
+          localVersion != null &&
+          localVersion >= change.version) {
+        return _RemoteApplyDecision.ignored;
+      }
+      return _recordRemoteConflict(
+        change: change,
+        reason: 'pending_local_change',
+        localVersion: localVersion,
+        localPayloadJson: localPayloadJson,
+        remotePayloadJson: remotePayloadJson,
+        detectedAt: detectedAt,
+      );
+    }
+    if (localVersion == null) return null;
+    if (change.version < localVersion ||
+        (change.version == localVersion && snapshotsEqual)) {
+      return _RemoteApplyDecision.ignored;
+    }
+    if (change.version == localVersion) {
+      return _recordRemoteConflict(
+        change: change,
+        reason: 'same_version_different_payload',
+        localVersion: localVersion,
+        localPayloadJson: localPayloadJson,
+        remotePayloadJson: remotePayloadJson,
+        detectedAt: detectedAt,
+      );
+    }
+    return null;
+  }
+
+  Future<_RemoteApplyDecision> _recordRemoteConflict({
+    required RemoteSyncChange change,
+    required String reason,
+    required int? localVersion,
+    required String? localPayloadJson,
+    required String remotePayloadJson,
+    required DateTime detectedAt,
+  }) async {
+    await into(syncConflicts).insert(
+      SyncConflictsCompanion.insert(
+        serverSequence: Value(change.serverSequence),
+        operationId: change.operationId.value,
+        entityType: change.entityType.name,
+        entityId: change.entityId.value,
+        reason: reason,
+        localVersion: Value(localVersion),
+        remoteVersion: change.version,
+        localPayloadJson: Value(localPayloadJson),
+        remotePayloadJson: remotePayloadJson,
+        detectedAtMs: detectedAt.millisecondsSinceEpoch,
+      ),
+    );
+    return _RemoteApplyDecision.conflict;
+  }
+
+  Future<Map<String, List<_PendingSyncImpact>>> _pendingSyncImpacts() async {
+    final rows = await (select(
+      syncOutbox,
+    )..orderBy([(table) => OrderingTerm.asc(table.localSequence)])).get();
+    final impacts = <String, List<_PendingSyncImpact>>{};
+    for (final row in rows) {
+      final operation = _syncOperationFromRow(row);
+      _addPendingImpact(
+        impacts,
+        operation.entityType,
+        operation.entityId,
+        operation.operationId,
+        operation.baseVersion,
+      );
+      if (operation.operationType == SyncOperationType.paymentRecord) {
+        final payload = operation.decodePayload();
+        final billPayload = payload['bill'];
+        final billBaseVersion = payload['bill_base_version'];
+        if (billPayload is! Map ||
+            billPayload['id'] is! String ||
+            billBaseVersion is! int) {
+          throw const FormatException('Payload payment.record lokal rusak.');
+        }
+        _addPendingImpact(
+          impacts,
+          SyncEntityType.bill,
+          EntityId.fromString(billPayload['id']! as String),
+          operation.operationId,
+          billBaseVersion,
+        );
+      }
+    }
+    return impacts;
+  }
+
+  void _addPendingImpact(
+    Map<String, List<_PendingSyncImpact>> impacts,
+    SyncEntityType entityType,
+    EntityId entityId,
+    EntityId operationId,
+    int baseVersion,
+  ) {
+    impacts
+        .putIfAbsent(_syncEntityKey(entityType, entityId), () => [])
+        .add(
+          _PendingSyncImpact(
+            operationId: operationId,
+            baseVersion: baseVersion,
+          ),
+        );
+  }
+
   Future<List<PendingSyncOperation>> getPendingSyncOperations({
     int limit = 100,
   }) async {
@@ -633,6 +1120,53 @@ final class AppDatabase extends _$AppDatabase {
           ),
         )
         .toList(growable: false);
+  }
+}
+
+enum _RemoteApplyDecision { applied, ignored, conflict }
+
+final class _PendingSyncImpact {
+  const _PendingSyncImpact({
+    required this.operationId,
+    required this.baseVersion,
+  });
+
+  final EntityId operationId;
+  final int baseVersion;
+}
+
+final class _RemoteSnapshotContext {
+  const _RemoteSnapshotContext({
+    required this.localVersion,
+    required this.localPayloadJson,
+    required this.remotePayloadJson,
+  });
+
+  final int? localVersion;
+  final String? localPayloadJson;
+  final String remotePayloadJson;
+}
+
+String _syncEntityKey(SyncEntityType entityType, EntityId entityId) =>
+    '${entityType.name}:${entityId.value}';
+
+void _validateRemotePage(
+  List<RemoteSyncChange> changes, {
+  required int currentCursor,
+  required int nextCursor,
+}) {
+  var previousSequence = currentCursor;
+  for (final change in changes) {
+    if (change.serverSequence <= previousSequence ||
+        !change.createdAt.isUtc ||
+        change.version < 1) {
+      throw const FormatException('Halaman perubahan remote tidak valid.');
+    }
+    previousSequence = change.serverSequence;
+  }
+  final expectedCursor = changes.isEmpty ? currentCursor : previousSequence;
+  if (nextCursor != expectedCursor) {
+    throw const FormatException('Cursor halaman perubahan tidak valid.');
   }
 }
 

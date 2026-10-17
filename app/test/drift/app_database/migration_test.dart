@@ -11,6 +11,7 @@ import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
 import 'generated/schema_v4.dart' as v4;
+import 'generated/schema_v5.dart' as v5;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -178,4 +179,54 @@ void main() {
       },
     );
   });
+
+  test(
+    'migration from v4 to v5 preserves local data and sync cursor',
+    () async {
+      const oldBill = v4.BillsData(
+        id: '01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0',
+        name: 'Spotify',
+        category: 'Hiburan',
+        amountMinorUnits: 59990,
+        currency: 'IDR',
+        billingCycle: 'monthly',
+        nextDueDate: '2026-10-25',
+        startDate: '2026-01-25',
+        status: 'active',
+        notes: null,
+        createdAtMs: 1790812800000,
+        updatedAtMs: 1790812800000,
+        version: 1,
+      );
+      const oldState = v4.SyncStateData(
+        id: 1,
+        deviceId: '0199e7d0-0000-7000-8000-000000000001',
+        lastPulledSequence: 12,
+        createdAtMs: 1792195200000,
+        bootstrapId: '0199e7d0-0000-7000-8000-000000000030',
+        bootstrapCreatedAtMs: 1792195200000,
+        bootstrapCompletedAtMs: 1792195260000,
+      );
+
+      await verifier.testWithDataIntegrity(
+        oldVersion: 4,
+        newVersion: 5,
+        createOld: v4.DatabaseAtV4.new,
+        createNew: v5.DatabaseAtV5.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insert(oldDb.bills, oldBill);
+          batch.insert(oldDb.syncState, oldState);
+        },
+        validateItems: (newDb) async {
+          final bills = await newDb.select(newDb.bills).get();
+          final states = await newDb.select(newDb.syncState).get();
+          expect(bills.single.name, 'Spotify');
+          expect(states.single.lastPulledSequence, 12);
+          expect(await newDb.select(newDb.appliedOperations).get(), isEmpty);
+          expect(await newDb.select(newDb.syncConflicts).get(), isEmpty);
+        },
+      );
+    },
+  );
 }

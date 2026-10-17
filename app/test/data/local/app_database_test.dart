@@ -19,7 +19,7 @@ void main() {
     await database.close();
   });
 
-  test('membuat schema version 3 beserta index dan sync state', () async {
+  test('membuat schema terbaru beserta index dan sync state', () async {
     final billIndexes = await database
         .customSelect("PRAGMA index_list('bills')")
         .get();
@@ -38,18 +38,32 @@ void main() {
     final syncOutboxIndexNames = syncOutboxIndexes
         .map((row) => row.read<String>('name'))
         .toSet();
+    final appliedIndexes = await database
+        .customSelect("PRAGMA index_list('applied_operations')")
+        .get();
+    final conflictIndexes = await database
+        .customSelect("PRAGMA index_list('sync_conflicts')")
+        .get();
     final foreignKeys = await database
         .customSelect('PRAGMA foreign_keys')
         .getSingle();
     final syncState = await database.getLocalSyncState();
 
-    expect(database.schemaVersion, 4);
+    expect(database.schemaVersion, 5);
     expect(billIndexNames, contains('bills_status_next_due_date'));
     expect(billIndexNames, contains('bills_deleted_at_ms'));
     expect(paymentIndexNames, contains('payments_bill_id_due_date'));
     expect(paymentIndexNames, contains('payments_paid_at_ms'));
     expect(paymentIndexNames, contains('payments_deleted_at_ms'));
     expect(syncOutboxIndexNames, contains('sync_outbox_entity'));
+    expect(
+      appliedIndexes.map((row) => row.read<String>('name')),
+      contains('applied_operations_operation'),
+    );
+    expect(
+      conflictIndexes.map((row) => row.read<String>('name')),
+      contains('sync_conflicts_entity'),
+    );
     expect(syncState.lastPulledSequence, 0);
     expect(foreignKeys.read<int>('foreign_keys'), 1);
   });

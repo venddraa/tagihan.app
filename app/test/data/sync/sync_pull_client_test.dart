@@ -6,6 +6,7 @@ import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/local/sync_operation.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
 import 'package:tagihan_vendra/data/sync/sync_pull_client.dart';
+import 'package:tagihan_vendra/domain/entity_id.dart';
 
 void main() {
   late AppDatabase database;
@@ -90,6 +91,124 @@ void main() {
     expect(page.nextCursor, 7);
     expect(page.hasMore, isFalse);
     expect((await database.getLocalSyncState()).lastPulledSequence, 7);
+  });
+
+  test('mengambil lalu menerapkan halaman dalam database lokal', () async {
+    const entityId = '0199e7d0-0000-7000-8000-000000000010';
+    final client = SyncPullClient(
+      database: database,
+      serviceBaseUri: Uri.parse('http://127.0.0.1:8787'),
+      getJSON: (uri) async => SyncHTTPResponse(
+        statusCode: 200,
+        body: jsonEncode({
+          'protocol_version': 1,
+          'changes': [
+            {
+              'server_sequence': 8,
+              'operation_id': '0199e7d0-0000-7000-8000-000000000020',
+              'entity_type': 'bill',
+              'entity_id': entityId,
+              'version': 1,
+              'payload': {
+                'id': entityId,
+                'name': 'Spotify',
+                'category': 'Hiburan',
+                'amount_minor_units': 59990,
+                'currency': 'IDR',
+                'billing_cycle': 'monthly',
+                'next_due_date': '2026-10-25',
+                'start_date': '2026-01-25',
+                'status': 'active',
+                'notes': null,
+                'created_at': '2026-10-01T00:00:00Z',
+                'updated_at': '2026-10-01T00:00:00Z',
+                'deleted_at': null,
+                'version': 1,
+              },
+              'created_at': '2026-10-17T00:00:00Z',
+            },
+          ],
+          'next_cursor': 8,
+          'has_more': false,
+        }),
+      ),
+    );
+
+    final summary = await client.pullAndApplyAvailable();
+
+    expect(summary.applied, 1);
+    expect(summary.conflicts, 0);
+    expect(summary.nextCursor, 8);
+    expect(
+      (await database.findBillById(EntityId.fromString(entityId)))!.name,
+      'Spotify',
+    );
+    expect((await database.getLocalSyncState()).lastPulledSequence, 8);
+  });
+
+  test('semua halaman diunduh sebelum transaksi penerapan dimulai', () async {
+    const entityId = '0199e7d0-0000-7000-8000-000000000010';
+    var calls = 0;
+    final client = SyncPullClient(
+      database: database,
+      serviceBaseUri: Uri.parse('http://127.0.0.1:8787'),
+      getJSON: (uri) async {
+        calls++;
+        if (calls == 1) {
+          expect(uri.queryParameters['after'], '7');
+          return SyncHTTPResponse(
+            statusCode: 200,
+            body: jsonEncode({
+              'protocol_version': 1,
+              'changes': [
+                _fullBillChange(
+                  sequence: 8,
+                  operationId: '0199e7d0-0000-7000-8000-000000000020',
+                  entityId: entityId,
+                  name: 'Spotify',
+                  version: 1,
+                ),
+              ],
+              'next_cursor': 8,
+              'has_more': true,
+            }),
+          );
+        }
+
+        expect(uri.queryParameters['after'], '8');
+        expect(
+          await database.findBillById(EntityId.fromString(entityId)),
+          isNull,
+        );
+        return SyncHTTPResponse(
+          statusCode: 200,
+          body: jsonEncode({
+            'protocol_version': 1,
+            'changes': [
+              _fullBillChange(
+                sequence: 9,
+                operationId: '0199e7d0-0000-7000-8000-000000000021',
+                entityId: entityId,
+                name: 'Spotify Premium',
+                version: 2,
+              ),
+            ],
+            'next_cursor': 9,
+            'has_more': false,
+          }),
+        );
+      },
+    );
+
+    final summary = await client.pullAndApplyAvailable(pageLimit: 1);
+
+    expect(calls, 2);
+    expect(summary.applied, 2);
+    expect(
+      (await database.findBillById(EntityId.fromString(entityId)))!.name,
+      'Spotify Premium',
+    );
+    expect((await database.getLocalSyncState()).lastPulledSequence, 9);
   });
 
   test(
@@ -200,6 +319,39 @@ Map<String, Object?> _change({
     'entity_id': entityId,
     'version': version,
     'payload': {'id': payloadId ?? entityId, 'version': version},
+    'created_at': '2026-10-17T00:00:00Z',
+  };
+}
+
+Map<String, Object?> _fullBillChange({
+  required int sequence,
+  required String operationId,
+  required String entityId,
+  required String name,
+  required int version,
+}) {
+  return {
+    'server_sequence': sequence,
+    'operation_id': operationId,
+    'entity_type': 'bill',
+    'entity_id': entityId,
+    'version': version,
+    'payload': {
+      'id': entityId,
+      'name': name,
+      'category': 'Hiburan',
+      'amount_minor_units': 59990,
+      'currency': 'IDR',
+      'billing_cycle': 'monthly',
+      'next_due_date': '2026-10-25',
+      'start_date': '2026-01-25',
+      'status': 'active',
+      'notes': null,
+      'created_at': '2026-10-01T00:00:00Z',
+      'updated_at': '2026-10-0${version}T00:00:00Z',
+      'deleted_at': null,
+      'version': version,
+    },
     'created_at': '2026-10-17T00:00:00Z',
   };
 }

@@ -6,26 +6,6 @@ import 'package:tagihan_vendra/data/local/sync_operation.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 
-final class RemoteSyncChange {
-  const RemoteSyncChange({
-    required this.serverSequence,
-    required this.operationId,
-    required this.entityType,
-    required this.entityId,
-    required this.version,
-    required this.payload,
-    required this.createdAt,
-  });
-
-  final int serverSequence;
-  final EntityId operationId;
-  final SyncEntityType entityType;
-  final EntityId entityId;
-  final int version;
-  final Map<String, Object?> payload;
-  final DateTime createdAt;
-}
-
 final class SyncPullPage {
   const SyncPullPage({
     required this.changes,
@@ -62,11 +42,34 @@ final class SyncPullClient {
       throw RangeError.range(limit, 1, 100, 'limit');
     }
     final state = await _database.getLocalSyncState();
+    return _fetchPage(after: state.lastPulledSequence, limit: limit);
+  }
+
+  Future<SyncApplySummary> pullAndApplyAvailable({int pageLimit = 100}) async {
+    if (pageLimit < 1 || pageLimit > 100) {
+      throw RangeError.range(pageLimit, 1, 100, 'pageLimit');
+    }
+    final state = await _database.getLocalSyncState();
+    var cursor = state.lastPulledSequence;
+    final changes = <RemoteSyncChange>[];
+    while (true) {
+      final page = await _fetchPage(after: cursor, limit: pageLimit);
+      changes.addAll(page.changes);
+      cursor = page.nextCursor;
+      if (!page.hasMore) break;
+    }
+    return _database.applyRemoteSyncPage(changes: changes, nextCursor: cursor);
+  }
+
+  Future<SyncPullPage> _fetchPage({
+    required int after,
+    required int limit,
+  }) async {
     final endpoint = _serviceBaseUri
         .resolve('/v1/sync/pull')
         .replace(
           queryParameters: {
-            'after': state.lastPulledSequence.toString(),
+            'after': after.toString(),
             'limit': limit.toString(),
           },
         );
@@ -76,11 +79,7 @@ final class SyncPullClient {
         'Sync service merespons HTTP ${response.statusCode}.',
       );
     }
-    return _decodePullPage(
-      response.body,
-      after: state.lastPulledSequence,
-      limit: limit,
-    );
+    return _decodePullPage(response.body, after: after, limit: limit);
   }
 }
 
