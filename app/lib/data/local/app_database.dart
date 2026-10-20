@@ -1044,6 +1044,20 @@ final class AppDatabase extends _$AppDatabase {
     return rows.map(_syncOperationFromRow).toList(growable: false);
   }
 
+  Future<int> countPendingSyncOperations() async {
+    final count = syncOutbox.localSequence.count();
+    final query = selectOnly(syncOutbox)..addColumns([count]);
+    return (await query.getSingle()).read(count) ?? 0;
+  }
+
+  Future<int> countUnresolvedSyncConflicts() async {
+    final count = syncConflicts.serverSequence.count();
+    final query = selectOnly(syncConflicts)
+      ..addColumns([count])
+      ..where(syncConflicts.resolvedAtMs.isNull());
+    return (await query.getSingle()).read(count) ?? 0;
+  }
+
   Future<int> acknowledgeSyncOperations(Iterable<EntityId> operationIds) {
     final values = operationIds.map((id) => id.value).toSet();
     if (values.isEmpty) {
