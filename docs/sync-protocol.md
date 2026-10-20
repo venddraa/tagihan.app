@@ -188,14 +188,23 @@ Conflict terjadi ketika:
 Hub atau client menyimpan dua sisi secara eksplisit: snapshot lokal yang diajukan
 dan snapshot terbaru dari hub. Tidak ada last-write-wins.
 
-Resolusi user nanti membuat operation baru berdasarkan versi hub terbaru:
+Resolusi user membuat operation baru berdasarkan versi hub terbaru:
 
 - **Gunakan Fedora/iPhone ini**: kirim snapshot pilihan lokal sebagai update baru;
 - **Gunakan perangkat lain**: terapkan snapshot hub dan batalkan rantai operation
   lokal yang sudah digantikan.
 
-Conflict pada `payment.record` tidak boleh menghasilkan dua pembayaran. Payment
-ID dan operation ID tetap dipertahankan selama resolusi.
+Conflict pada `payment.record` tidak boleh menggandakan pembayaran. Payment ID
+tetap dipertahankan; operation hasil rebase memakai ID baru karena operation ID
+lama sudah tercatat idempotent sebagai conflict di hub.
+
+Client mengelompokkan conflict berdasarkan operation ID dan menyelesaikan satu
+kelompok dalam satu transaksi SQLite. Memilih versi hub membatalkan operation
+lokal yang terdampak lalu menerapkan seluruh snapshot remote. Memilih versi
+perangkat menerapkan snapshot remote sebagai base, kemudian membuat operation ID
+baru untuk replay perubahan lokal. `payment.record` direbase terhadap versi Bill
+hub; jika periode yang sama sudah dimajukan oleh perangkat lain, Bill tidak
+dimajukan untuk kedua kalinya.
 
 ## Delete dan tombstone
 

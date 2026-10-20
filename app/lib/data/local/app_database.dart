@@ -455,27 +455,8 @@ final class AppDatabase extends _$AppDatabase {
       }
 
       await into(payments).insert(_paymentToCompanion(payment));
-      var resultingBill = bill;
-      if (bill.isActive && payment.dueDate == bill.nextDueDate) {
-        final nextDueDate = calculateNextDueDate(bill);
-        final changedAt = payment.createdAt.isAfter(bill.updatedAt)
-            ? payment.createdAt
-            : bill.updatedAt;
-        resultingBill = Bill(
-          id: bill.id,
-          name: bill.name,
-          category: bill.category,
-          amount: bill.amount,
-          billingCycle: bill.billingCycle,
-          nextDueDate: nextDueDate ?? bill.nextDueDate,
-          startDate: bill.startDate,
-          status: nextDueDate == null ? BillStatus.archived : bill.status,
-          notes: bill.notes,
-          createdAt: bill.createdAt,
-          updatedAt: changedAt,
-          deletedAt: bill.deletedAt,
-          version: bill.version + 1,
-        );
+      final resultingBill = _billAfterPayment(bill, payment);
+      if (resultingBill.version != bill.version) {
         await _updateBillRow(resultingBill);
       }
 
@@ -1051,11 +1032,247 @@ final class AppDatabase extends _$AppDatabase {
   }
 
   Future<int> countUnresolvedSyncConflicts() async {
-    final count = syncConflicts.serverSequence.count();
-    final query = selectOnly(syncConflicts)
-      ..addColumns([count])
-      ..where(syncConflicts.resolvedAtMs.isNull());
-    return (await query.getSingle()).read(count) ?? 0;
+    final rows = await (select(
+      syncConflicts,
+    )..where((table) => table.resolvedAtMs.isNull())).get();
+    return rows.map((row) => row.operationId).toSet().length;
+  }
+
+  Stream<List<SyncConflictGroup>> watchUnresolvedSyncConflicts() {
+    final query = select(syncConflicts)
+      ..where((table) => table.resolvedAtMs.isNull())
+      ..orderBy([
+        (table) => OrderingTerm.asc(table.detectedAtMs),
+        (table) => OrderingTerm.asc(table.serverSequence),
+      ]);
+    return query.watch().map(_syncConflictGroupsFromRows);
+  }
+
+  Future<void> resolveSyncConflict({
+    required EntityId operationId,
+    required SyncConflictResolution resolution,
+    DateTime? resolvedAt,
+  }) {
+    final resolutionTime = (resolvedAt ?? DateTime.now()).toUtc();
+    return transaction(() async {
+      final rows =
+          await (select(syncConflicts)..where(
+                (table) =>
+                    table.operationId.equals(operationId.value) &
+                    table.resolvedAtMs.isNull(),
+              ))
+              .get();
+      if (rows.isEmpty) {
+        throw StateError('Conflict yang akan diselesaikan tidak ditemukan.');
+      }
+
+      final conflicts = _syncConflictEntriesFromRows(rows);
+      final remoteKeys = conflicts
+          .map(
+            (conflict) =>
+                _syncEntityKey(conflict.entityType, conflict.entityId),
+          )
+          .toSet();
+      final pendingRows = await (select(
+        syncOutbox,
+      )..orderBy([(table) => OrderingTerm.asc(table.localSequence)])).get();
+      final impactedPending = pendingRows
+          .map(_syncOperationFromRow)
+          .where(
+            (operation) =>
+                _pendingOperationEntityKeys(operation).any(remoteKeys.contains),
+          )
+          .toList(growable: false);
+
+      await _removePendingOperationEffects(impactedPending);
+      await _applyConflictRemoteSnapshots(conflicts);
+      if (resolution == SyncConflictResolution.keepLocal) {
+        if (impactedPending.isEmpty) {
+          await _replayLocalConflictSnapshots(conflicts, resolutionTime);
+        } else {
+          await _replayPendingOperations(impactedPending, resolutionTime);
+        }
+      }
+
+      await (update(syncConflicts)..where(
+            (table) =>
+                table.operationId.equals(operationId.value) &
+                table.resolvedAtMs.isNull(),
+          ))
+          .write(
+            SyncConflictsCompanion(
+              resolvedAtMs: Value(resolutionTime.millisecondsSinceEpoch),
+            ),
+          );
+    });
+  }
+
+  Future<void> _removePendingOperationEffects(
+    List<PendingSyncOperation> operations,
+  ) async {
+    if (operations.isEmpty) return;
+    final paymentIds = <String>[];
+    for (final operation in operations) {
+      if (operation.operationType != SyncOperationType.paymentRecord) continue;
+      final payload = operation.decodePayload();
+      final payment = _requiredPayloadMap(payload, 'payment');
+      final paymentId = payment['id'];
+      if (paymentId is! String) {
+        throw const FormatException('Payload Payment lokal tidak valid.');
+      }
+      paymentIds.add(paymentId);
+    }
+    if (paymentIds.isNotEmpty) {
+      await (delete(
+        payments,
+      )..where((table) => table.id.isIn(paymentIds))).go();
+    }
+    await (delete(syncOutbox)..where(
+          (table) => table.operationId.isIn(
+            operations.map((operation) => operation.operationId.value),
+          ),
+        ))
+        .go();
+  }
+
+  Future<void> _applyConflictRemoteSnapshots(
+    List<SyncConflictEntry> conflicts,
+  ) async {
+    for (final conflict in conflicts.where(
+      (entry) => entry.entityType == SyncEntityType.bill,
+    )) {
+      final bill = decodeBillSnapshot(conflict.remotePayload);
+      await into(bills).insertOnConflictUpdate(_billToCompanion(bill));
+    }
+    for (final conflict in conflicts.where(
+      (entry) => entry.entityType == SyncEntityType.payment,
+    )) {
+      final payment = decodePaymentSnapshot(conflict.remotePayload);
+      await into(payments).insertOnConflictUpdate(_paymentToCompanion(payment));
+    }
+  }
+
+  Future<void> _replayPendingOperations(
+    List<PendingSyncOperation> operations,
+    DateTime resolutionTime,
+  ) async {
+    for (final operation in operations) {
+      switch (operation.operationType) {
+        case SyncOperationType.billCreate:
+        case SyncOperationType.billUpdate:
+        case SyncOperationType.billArchive:
+          await _replayBillOperation(operation, resolutionTime);
+        case SyncOperationType.paymentRecord:
+          await _replayPaymentOperation(operation, resolutionTime);
+      }
+    }
+  }
+
+  Future<void> _replayBillOperation(
+    PendingSyncOperation operation,
+    DateTime resolutionTime,
+  ) async {
+    final desired = decodeBillSnapshot(operation.decodePayload());
+    await _replayDesiredBill(desired, resolutionTime);
+  }
+
+  Future<void> _replayLocalConflictSnapshots(
+    List<SyncConflictEntry> conflicts,
+    DateTime resolutionTime,
+  ) async {
+    for (final conflict in conflicts) {
+      final localPayload = conflict.localPayload;
+      if (localPayload == null) {
+        throw StateError('Versi lokal untuk conflict tidak tersedia.');
+      }
+      switch (conflict.entityType) {
+        case SyncEntityType.bill:
+          await _replayDesiredBill(
+            decodeBillSnapshot(localPayload),
+            resolutionTime,
+          );
+        case SyncEntityType.payment:
+          throw StateError(
+            'Payment dari perangkat ini tidak dapat mengganti Payment hub dengan ID yang sama.',
+          );
+      }
+    }
+  }
+
+  Future<void> _replayDesiredBill(Bill desired, DateTime resolutionTime) async {
+    final remote = await findBillById(desired.id);
+    if (remote == null) {
+      throw StateError('Versi hub untuk Tagihan tidak ditemukan.');
+    }
+    final rebased = Bill(
+      id: desired.id,
+      name: desired.name,
+      category: desired.category,
+      amount: desired.amount,
+      billingCycle: desired.billingCycle,
+      nextDueDate: desired.nextDueDate,
+      startDate: desired.startDate,
+      status: desired.status,
+      notes: desired.notes,
+      createdAt: desired.createdAt,
+      updatedAt: resolutionTime,
+      deletedAt: desired.deletedAt,
+      version: remote.version + 1,
+    );
+    await _updateBillRow(rebased);
+    await _enqueueOperation(
+      entityType: SyncEntityType.bill,
+      entityId: rebased.id,
+      operationType: rebased.status == BillStatus.archived
+          ? SyncOperationType.billArchive
+          : SyncOperationType.billUpdate,
+      baseVersion: remote.version,
+      payloadJson: encodeBillSnapshot(rebased),
+      createdAt: resolutionTime,
+    );
+  }
+
+  Future<void> _replayPaymentOperation(
+    PendingSyncOperation operation,
+    DateTime resolutionTime,
+  ) async {
+    final payload = operation.decodePayload();
+    final payment = decodePaymentSnapshot(
+      _requiredPayloadMap(payload, 'payment'),
+    );
+    final existingPayment = await findPaymentById(payment.id);
+    if (existingPayment != null) {
+      if (encodePaymentSnapshot(existingPayment) ==
+          encodePaymentSnapshot(payment)) {
+        return;
+      }
+      throw StateError('Payment dengan ID yang sama sudah ada di sync hub.');
+    }
+    final bill = await findBillById(payment.billId);
+    if (bill == null || bill.isDeleted) {
+      throw StateError('Tagihan untuk Payment lokal tidak tersedia.');
+    }
+    if (payment.amount.currency != bill.amount.currency) {
+      throw StateError('Currency Payment dan Tagihan tidak sama.');
+    }
+
+    await into(payments).insert(_paymentToCompanion(payment));
+    final resultingBill = _billAfterPayment(bill, payment);
+    if (resultingBill.version != bill.version) {
+      await _updateBillRow(resultingBill);
+    }
+    await _enqueueOperation(
+      entityType: SyncEntityType.payment,
+      entityId: payment.id,
+      operationType: SyncOperationType.paymentRecord,
+      baseVersion: 0,
+      payloadJson: encodePaymentRecord(
+        payment: payment,
+        bill: resultingBill,
+        billBaseVersion: bill.version,
+      ),
+      createdAt: resolutionTime,
+    );
   }
 
   Future<int> acknowledgeSyncOperations(Iterable<EntityId> operationIds) {
@@ -1163,6 +1380,106 @@ final class _RemoteSnapshotContext {
 
 String _syncEntityKey(SyncEntityType entityType, EntityId entityId) =>
     '${entityType.name}:${entityId.value}';
+
+Set<String> _pendingOperationEntityKeys(PendingSyncOperation operation) {
+  final keys = {_syncEntityKey(operation.entityType, operation.entityId)};
+  if (operation.operationType == SyncOperationType.paymentRecord) {
+    final bill = _requiredPayloadMap(operation.decodePayload(), 'bill');
+    final billId = bill['id'];
+    if (billId is! String) {
+      throw const FormatException('Payload Bill pada Payment tidak valid.');
+    }
+    keys.add(_syncEntityKey(SyncEntityType.bill, EntityId.fromString(billId)));
+  }
+  return keys;
+}
+
+Map<String, Object?> _requiredPayloadMap(
+  Map<String, Object?> payload,
+  String key,
+) {
+  final value = payload[key];
+  if (value is! Map) {
+    throw FormatException('Field $key pada payload tidak valid.');
+  }
+  return value.cast<String, Object?>();
+}
+
+List<SyncConflictGroup> _syncConflictGroupsFromRows(
+  List<SyncConflictRow> rows,
+) {
+  final grouped = <EntityId, List<SyncConflictEntry>>{};
+  for (final row in rows) {
+    grouped
+        .putIfAbsent(EntityId.fromString(row.operationId), () => [])
+        .add(_syncConflictEntryFromRow(row));
+  }
+  return grouped.entries
+      .map(
+        (group) => SyncConflictGroup(
+          operationId: group.key,
+          entries: List.unmodifiable(group.value),
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<SyncConflictEntry> _syncConflictEntriesFromRows(
+  List<SyncConflictRow> rows,
+) {
+  return rows.map(_syncConflictEntryFromRow).toList(growable: false);
+}
+
+SyncConflictEntry _syncConflictEntryFromRow(SyncConflictRow row) {
+  final localPayload = row.localPayloadJson == null
+      ? null
+      : _decodeSnapshotJSON(row.localPayloadJson!);
+  return SyncConflictEntry(
+    serverSequence: row.serverSequence,
+    entityType: SyncEntityType.values.byName(row.entityType),
+    entityId: EntityId.fromString(row.entityId),
+    reason: row.reason,
+    localVersion: row.localVersion,
+    remoteVersion: row.remoteVersion,
+    localPayload: localPayload,
+    remotePayload: _decodeSnapshotJSON(row.remotePayloadJson),
+    detectedAt: DateTime.fromMillisecondsSinceEpoch(
+      row.detectedAtMs,
+      isUtc: true,
+    ),
+  );
+}
+
+Map<String, Object?> _decodeSnapshotJSON(String value) {
+  final decoded = jsonDecode(value);
+  if (decoded is! Map) {
+    throw const FormatException('Snapshot conflict tidak valid.');
+  }
+  return decoded.cast<String, Object?>();
+}
+
+Bill _billAfterPayment(Bill bill, Payment payment) {
+  if (!bill.isActive || payment.dueDate != bill.nextDueDate) return bill;
+  final nextDueDate = calculateNextDueDate(bill);
+  final changedAt = payment.createdAt.isAfter(bill.updatedAt)
+      ? payment.createdAt
+      : bill.updatedAt;
+  return Bill(
+    id: bill.id,
+    name: bill.name,
+    category: bill.category,
+    amount: bill.amount,
+    billingCycle: bill.billingCycle,
+    nextDueDate: nextDueDate ?? bill.nextDueDate,
+    startDate: bill.startDate,
+    status: nextDueDate == null ? BillStatus.archived : bill.status,
+    notes: bill.notes,
+    createdAt: bill.createdAt,
+    updatedAt: changedAt,
+    deletedAt: bill.deletedAt,
+    version: bill.version + 1,
+  );
+}
 
 void _validateRemotePage(
   List<RemoteSyncChange> changes, {

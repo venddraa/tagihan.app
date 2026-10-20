@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
+import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/sync_coordinator.dart';
+import 'package:tagihan_vendra/features/settings/sync_conflict_section.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
+    required this.database,
     required this.syncCoordinator,
     required this.compact,
   });
 
+  final AppDatabase database;
   final SyncCoordinator syncCoordinator;
   final bool compact;
 
@@ -113,6 +117,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
+              ),
+              SyncConflictSection(
+                database: widget.database,
+                onResolved: widget.syncCoordinator.refreshLocalStatus,
               ),
             ],
           ),

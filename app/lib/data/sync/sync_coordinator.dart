@@ -84,15 +84,12 @@ final class SyncCoordinator {
 
     try {
       final counts = await _readCounts();
-      final knownConflicts = counts.conflicts > _status.conflicts
-          ? counts.conflicts
-          : _status.conflicts;
-      if (knownConflicts > 0) {
+      if (counts.conflicts > 0) {
         return _publish(
           SyncRuntimeStatus(
             phase: SyncRuntimePhase.conflict,
             pendingChanges: counts.pending,
-            conflicts: knownConflicts,
+            conflicts: counts.conflicts,
             message: 'Ada perubahan yang perlu dipilih secara manual.',
             lastSyncAt: _lastSyncAt,
           ),

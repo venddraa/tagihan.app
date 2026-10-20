@@ -31,6 +31,41 @@ enum SyncOperationType {
   }
 }
 
+enum SyncConflictResolution { keepLocal, useRemote }
+
+final class SyncConflictEntry {
+  const SyncConflictEntry({
+    required this.serverSequence,
+    required this.entityType,
+    required this.entityId,
+    required this.reason,
+    required this.localVersion,
+    required this.remoteVersion,
+    required this.localPayload,
+    required this.remotePayload,
+    required this.detectedAt,
+  });
+
+  final int serverSequence;
+  final SyncEntityType entityType;
+  final EntityId entityId;
+  final String reason;
+  final int? localVersion;
+  final int remoteVersion;
+  final Map<String, Object?>? localPayload;
+  final Map<String, Object?> remotePayload;
+  final DateTime detectedAt;
+}
+
+final class SyncConflictGroup {
+  const SyncConflictGroup({required this.operationId, required this.entries});
+
+  final EntityId operationId;
+  final List<SyncConflictEntry> entries;
+
+  DateTime get detectedAt => entries.first.detectedAt;
+}
+
 final class PendingSyncOperation {
   const PendingSyncOperation({
     required this.localSequence,

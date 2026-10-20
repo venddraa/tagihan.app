@@ -352,7 +352,11 @@ class _DestinationContent extends StatelessWidget {
     if (selectedIndex == 2) {
       return PaymentHistoryPage(database: database, compact: compact);
     }
-    return SettingsPage(syncCoordinator: syncCoordinator, compact: compact);
+    return SettingsPage(
+      database: database,
+      syncCoordinator: syncCoordinator,
+      compact: compact,
+    );
   }
 }
 
