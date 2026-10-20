@@ -34,6 +34,34 @@ void main() {
     );
   });
 
+  test('membaca jumlah perubahan lokal tanpa menghubungi hub', () async {
+    await database.insertBill(_bill(1));
+    var networkCalled = false;
+    final coordinator = SyncCoordinator(
+      database: database,
+      pushClient: _pushClient(
+        database,
+        onRequest: (operations) {
+          networkCalled = true;
+        },
+      ),
+      pullClient: _pullClient(
+        database,
+        onRequest: (uri) {
+          networkCalled = true;
+        },
+      ),
+    );
+    addTearDown(coordinator.close);
+
+    final result = await coordinator.refreshLocalStatus();
+
+    expect(result.phase, SyncRuntimePhase.idle);
+    expect(result.pendingChanges, 1);
+    expect(result.message, '1 perubahan menunggu sinkronisasi.');
+    expect(networkCalled, isFalse);
+  });
+
   test('push lalu pull menghasilkan status synced', () async {
     await database.insertBill(_bill(1));
     final events = <String>[];
@@ -184,6 +212,26 @@ void main() {
     expect(result.pendingChanges, 1);
     expect(pullCalled, isFalse);
     expect(await database.countPendingSyncOperations(), 1);
+    expect(
+      (await coordinator.refreshLocalStatus()).phase,
+      SyncRuntimePhase.offline,
+    );
+  });
+
+  test('perubahan baru setelah sync kembali ditandai menunggu', () async {
+    final coordinator = SyncCoordinator(
+      database: database,
+      pushClient: _pushClient(database),
+      pullClient: _pullClient(database),
+    );
+    addTearDown(coordinator.close);
+    expect((await coordinator.synchronize()).phase, SyncRuntimePhase.synced);
+
+    await database.insertBill(_bill(1));
+    final refreshed = await coordinator.refreshLocalStatus();
+
+    expect(refreshed.phase, SyncRuntimePhase.idle);
+    expect(refreshed.pendingChanges, 1);
   });
 
   test('dua pemanggilan bersamaan berbagi satu proses sync', () async {

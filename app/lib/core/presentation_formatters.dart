@@ -20,6 +20,13 @@ String formatDateTimeDate(DateTime dateTime) {
   return '${local.day} ${_monthNames[local.month - 1]} ${local.year}';
 }
 
+String formatDateTime(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${formatDateTimeDate(local)}, $hour.$minute';
+}
+
 String formatMoney(Money money) {
   final scale = _powerOfTen(money.currency.decimalDigits);
   final majorUnits = money.minorUnits ~/ scale;

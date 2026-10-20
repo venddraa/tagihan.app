@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
+import 'package:tagihan_vendra/data/sync/sync_coordinator.dart';
 import 'package:tagihan_vendra/features/bills/bill_list_page.dart';
 import 'package:tagihan_vendra/features/overview/overview_page.dart';
 import 'package:tagihan_vendra/features/payments/payment_history_page.dart';
+import 'package:tagihan_vendra/features/settings/settings_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.database});
+  const AppShell({
+    super.key,
+    required this.database,
+    required this.syncCoordinator,
+  });
 
   final AppDatabase database;
+  final SyncCoordinator syncCoordinator;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -17,22 +24,10 @@ class _AppShellState extends State<AppShell> {
   static const _desktopBreakpoint = 860.0;
 
   static const _destinations = [
-    _AppDestination(
-      label: 'Ringkasan',
-      description: 'Pantau tagihan yang perlu diperhatikan.',
-    ),
-    _AppDestination(
-      label: 'Tagihan',
-      description: 'Kelola tagihan dan subscription pribadi.',
-    ),
-    _AppDestination(
-      label: 'Pembayaran',
-      description: 'Lihat dan catat riwayat pembayaran.',
-    ),
-    _AppDestination(
-      label: 'Pengaturan',
-      description: 'Atur preferensi aplikasi.',
-    ),
+    _AppDestination(label: 'Ringkasan'),
+    _AppDestination(label: 'Tagihan'),
+    _AppDestination(label: 'Pembayaran'),
+    _AppDestination(label: 'Pengaturan'),
   ];
 
   int _selectedIndex = 0;
@@ -43,14 +38,12 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final destination = _destinations[_selectedIndex];
-
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < _desktopBreakpoint) {
           return _CompactShell(
             database: widget.database,
-            destination: destination,
+            syncCoordinator: widget.syncCoordinator,
             destinations: _destinations,
             selectedIndex: _selectedIndex,
             onDestinationSelected: _selectDestination,
@@ -59,7 +52,7 @@ class _AppShellState extends State<AppShell> {
 
         return _DesktopShell(
           database: widget.database,
-          destination: destination,
+          syncCoordinator: widget.syncCoordinator,
           destinations: _destinations,
           selectedIndex: _selectedIndex,
           onDestinationSelected: _selectDestination,
@@ -72,14 +65,14 @@ class _AppShellState extends State<AppShell> {
 class _DesktopShell extends StatelessWidget {
   const _DesktopShell({
     required this.database,
-    required this.destination,
+    required this.syncCoordinator,
     required this.destinations,
     required this.selectedIndex,
     required this.onDestinationSelected,
   });
 
   final AppDatabase database;
-  final _AppDestination destination;
+  final SyncCoordinator syncCoordinator;
   final List<_AppDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -118,7 +111,7 @@ class _DesktopShell extends StatelessWidget {
             Expanded(
               child: _DestinationContent(
                 database: database,
-                destination: destination,
+                syncCoordinator: syncCoordinator,
                 selectedIndex: selectedIndex,
                 onDestinationSelected: onDestinationSelected,
               ),
@@ -133,14 +126,14 @@ class _DesktopShell extends StatelessWidget {
 class _CompactShell extends StatelessWidget {
   const _CompactShell({
     required this.database,
-    required this.destination,
+    required this.syncCoordinator,
     required this.destinations,
     required this.selectedIndex,
     required this.onDestinationSelected,
   });
 
   final AppDatabase database;
-  final _AppDestination destination;
+  final SyncCoordinator syncCoordinator;
   final List<_AppDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -154,7 +147,7 @@ class _CompactShell extends StatelessWidget {
         bottom: false,
         child: _DestinationContent(
           database: database,
-          destination: destination,
+          syncCoordinator: syncCoordinator,
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
           compact: true,
@@ -331,14 +324,14 @@ class _BottomNavigationItem extends StatelessWidget {
 class _DestinationContent extends StatelessWidget {
   const _DestinationContent({
     required this.database,
-    required this.destination,
+    required this.syncCoordinator,
     required this.selectedIndex,
     required this.onDestinationSelected,
     this.compact = false,
   });
 
   final AppDatabase database;
-  final _AppDestination destination;
+  final SyncCoordinator syncCoordinator;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final bool compact;
@@ -359,31 +352,12 @@ class _DestinationContent extends StatelessWidget {
     if (selectedIndex == 2) {
       return PaymentHistoryPage(database: database, compact: compact);
     }
-
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: EdgeInsets.all(compact ? 24 : 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(destination.label, style: textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text(destination.description, style: textTheme.bodyLarge),
-          const Expanded(
-            child: Center(
-              child: Text('Konten akan ditambahkan pada tahap berikutnya.'),
-            ),
-          ),
-        ],
-      ),
-    );
+    return SettingsPage(syncCoordinator: syncCoordinator, compact: compact);
   }
 }
 
 class _AppDestination {
-  const _AppDestination({required this.label, required this.description});
+  const _AppDestination({required this.label});
 
   final String label;
-  final String description;
 }

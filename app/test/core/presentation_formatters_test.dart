@@ -22,4 +22,8 @@ void main() {
   test('memformat tanggal kalender dalam Bahasa Indonesia', () {
     expect(formatCalendarDate(CalendarDate(2026, 10, 15)), '15 Okt 2026');
   });
+
+  test('memformat waktu lokal dengan dua digit', () {
+    expect(formatDateTime(DateTime(2026, 10, 15, 9, 5)), '15 Okt 2026, 09.05');
+  });
 }

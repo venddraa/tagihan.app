@@ -79,6 +79,69 @@ final class SyncCoordinator {
 
   Stream<SyncRuntimeStatus> get statusChanges => _statusController.stream;
 
+  Future<SyncRuntimeStatus> refreshLocalStatus() async {
+    if (_activeSync != null) return _status;
+
+    try {
+      final counts = await _readCounts();
+      final knownConflicts = counts.conflicts > _status.conflicts
+          ? counts.conflicts
+          : _status.conflicts;
+      if (knownConflicts > 0) {
+        return _publish(
+          SyncRuntimeStatus(
+            phase: SyncRuntimePhase.conflict,
+            pendingChanges: counts.pending,
+            conflicts: knownConflicts,
+            message: 'Ada perubahan yang perlu dipilih secara manual.',
+            lastSyncAt: _lastSyncAt,
+          ),
+        );
+      }
+
+      if (_status.phase == SyncRuntimePhase.offline ||
+          _status.phase == SyncRuntimePhase.failed) {
+        return _publish(
+          SyncRuntimeStatus(
+            phase: _status.phase,
+            pendingChanges: counts.pending,
+            conflicts: 0,
+            message: _status.message,
+            lastSyncAt: _lastSyncAt,
+          ),
+        );
+      }
+
+      final hasSynced = _lastSyncAt != null;
+      final hasPendingChanges = counts.pending > 0;
+      return _publish(
+        SyncRuntimeStatus(
+          phase: hasSynced && !hasPendingChanges
+              ? SyncRuntimePhase.synced
+              : SyncRuntimePhase.idle,
+          pendingChanges: counts.pending,
+          conflicts: 0,
+          message: hasPendingChanges
+              ? '${counts.pending} perubahan menunggu sinkronisasi.'
+              : hasSynced
+              ? 'Semua perubahan sudah tersinkron.'
+              : 'Belum disinkronkan pada sesi ini.',
+          lastSyncAt: _lastSyncAt,
+        ),
+      );
+    } on Object {
+      return _publish(
+        SyncRuntimeStatus(
+          phase: SyncRuntimePhase.failed,
+          pendingChanges: _status.pendingChanges,
+          conflicts: _status.conflicts,
+          message: 'Status sinkronisasi lokal tidak dapat dibaca.',
+          lastSyncAt: _lastSyncAt,
+        ),
+      );
+    }
+  }
+
   Future<SyncRuntimeStatus> synchronize() {
     final active = _activeSync;
     if (active != null) return active;
