@@ -248,6 +248,42 @@ Dependency yang diusulkan untuk direview sebelum instalasi:
 5. **18D — QR dan pengujian perangkat:** pilih plugin, implementasi QR/scan,
    dan pengujian native iOS ketika toolchain Mac tersedia.
 
+### Checkpoint 18C.2
+
+Penerima undangan sudah mempunyai form tempel teks, penyimpanan sesi di secure
+store, tombol pemeriksaan manual, dan pembatalan yang dikonfirmasi hub.
+`request_id` dan credential dibuat satu kali dan disimpan **sebelum** POST pertama.
+Retry timeout menggunakan payload yang sama. Undangan dibuang dari profil setelah
+approval terverifikasi; token perangkat tetap di keyring, bukan SQLite.
+
+Sebelum menyelesaikan pairing dan sebelum setiap sync manual, client memanggil
+`GET /v1/pairing/identity` dengan device token melalui HTTPS berpinned. Response
+harus cocok dengan `hub_id` undangan dan `device_id` database. Ini memulihkan
+approval durable meskipun restart menghapus sesi sementara. Status pending tidak
+memberi akses push/pull. Client tidak mempunyai akses bootstrap atau admin.
+
+SQLite app schema 6 menambah `hub_binding` nonrahasia. Binding paired berisi
+hub ID dan pin; binding hub lokal berisi origin. Cursor, tagihan, payment, dan
+outbox dipertahankan oleh migrasi. Replica yang mempunyai riwayat sync lama atau
+binding berbeda ditolak untuk pairing; tidak ada reset cursor otomatis. Jika
+keyring gagal setelah binding commit, profil pending yang lama tetap dapat
+dipakai untuk memulihkan approval. Hilangnya profil tidak membuat app beralih
+ke localhost atau mendaftarkan token baru.
+
+`POST /v1/pairing/requests/{request_id}/cancel` memakai device token kandidat,
+bukan invitation/admin token. Pembatalan diserialisasi dengan approval di Go.
+Client tidak menghapus credential ketika hub offline, masih approving, atau
+sudah approved/terikat. Unpair, pindah hub, rotasi credential, dan perubahan
+endpoint belum dibuat pada checkpoint ini.
+
+Role default di Linux adalah `hub`, dan di iOS adalah `client`. Override untuk
+review menggunakan `TAGIHAN_SYNC_ROLE=client`. Pada checkpoint ini secure store
+yang tersedia hanya Fedora Secret Service. iOS gagal dengan pesan penyimpanan
+credential belum disiapkan, sambil tetap dapat menjalankan CRUD lokal; adapter
+Keychain serta uji native tetap masuk 18D. Tidak ada fallback plaintext.
+
+Panduan dua replica Fedora: [review penerima undangan](api/pairing-client-review.md).
+
 OpenAPI dan contoh Postman diperbarui bersama endpoint yang benar-benar sudah
 diimplementasikan. Service harus memberi body size limit, timeout, dan rate limit
 pada pairing; batas request diatur per alamat sumber dan secara global, bukan

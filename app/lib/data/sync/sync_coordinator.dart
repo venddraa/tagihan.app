@@ -4,6 +4,7 @@ import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/sync_bootstrap_client.dart';
 import 'package:tagihan_vendra/data/sync/sync_pull_client.dart';
 import 'package:tagihan_vendra/data/sync/sync_push_client.dart';
+import 'package:tagihan_vendra/data/sync/pairing_receiver.dart';
 
 enum SyncBootstrapPolicy { skip, initializeHub }
 
@@ -40,6 +41,8 @@ final class SyncCoordinator {
     SyncBootstrapPolicy bootstrapPolicy = SyncBootstrapPolicy.skip,
     SyncBootstrapClient? bootstrapClient,
     Future<void> Function()? prepareSync,
+    PairingReceiver? pairingReceiver,
+    bool managesHub = false,
   }) {
     if (bootstrapPolicy == SyncBootstrapPolicy.initializeHub &&
         bootstrapClient == null) {
@@ -54,6 +57,8 @@ final class SyncCoordinator {
       pullClient,
       bootstrapPolicy,
       prepareSync,
+      pairingReceiver,
+      managesHub,
     );
   }
 
@@ -64,6 +69,8 @@ final class SyncCoordinator {
     this._pullClient,
     this.bootstrapPolicy,
     this._prepareSync,
+    this.pairingReceiver,
+    this.managesHub,
   );
 
   final AppDatabase _database;
@@ -72,6 +79,8 @@ final class SyncCoordinator {
   final SyncPullClient _pullClient;
   final SyncBootstrapPolicy bootstrapPolicy;
   final Future<void> Function()? _prepareSync;
+  final PairingReceiver? pairingReceiver;
+  final bool managesHub;
   final StreamController<SyncRuntimeStatus> _statusController =
       StreamController<SyncRuntimeStatus>.broadcast(sync: true);
 

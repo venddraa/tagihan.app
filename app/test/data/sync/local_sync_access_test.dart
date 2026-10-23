@@ -253,6 +253,11 @@ SyncHTTPResponse _registeredResponse(String body, {int status = 201}) {
 }
 
 final class _MemoryCredentials implements SyncCredentialStore {
+  @override
+  Future<void> delete(String service, String deviceId) async {
+    throw UnimplementedError();
+  }
+
   String? value;
   int writes = 0;
   bool failWrite = false;

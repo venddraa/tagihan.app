@@ -2167,6 +2167,17 @@ class $SyncStatesTable extends SyncStates
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _hubBindingMeta = const VerificationMeta(
+    'hubBinding',
+  );
+  @override
+  late final GeneratedColumn<String> hubBinding = GeneratedColumn<String>(
+    'hub_binding',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2178,6 +2189,7 @@ class $SyncStatesTable extends SyncStates
     bootstrapOutboxSequence,
     bootstrapCreatedAtMs,
     bootstrapCompletedAtMs,
+    hubBinding,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2267,6 +2279,12 @@ class $SyncStatesTable extends SyncStates
         ),
       );
     }
+    if (data.containsKey('hub_binding')) {
+      context.handle(
+        _hubBindingMeta,
+        hubBinding.isAcceptableOrUnknown(data['hub_binding']!, _hubBindingMeta),
+      );
+    }
     return context;
   }
 
@@ -2312,6 +2330,10 @@ class $SyncStatesTable extends SyncStates
         DriftSqlType.int,
         data['${effectivePrefix}bootstrap_completed_at_ms'],
       ),
+      hubBinding: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hub_binding'],
+      ),
     );
   }
 
@@ -2331,6 +2353,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
   final int? bootstrapOutboxSequence;
   final int? bootstrapCreatedAtMs;
   final int? bootstrapCompletedAtMs;
+  final String? hubBinding;
   const SyncStateRow({
     required this.id,
     required this.deviceId,
@@ -2341,6 +2364,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     this.bootstrapOutboxSequence,
     this.bootstrapCreatedAtMs,
     this.bootstrapCompletedAtMs,
+    this.hubBinding,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2363,6 +2387,9 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     }
     if (!nullToAbsent || bootstrapCompletedAtMs != null) {
       map['bootstrap_completed_at_ms'] = Variable<int>(bootstrapCompletedAtMs);
+    }
+    if (!nullToAbsent || hubBinding != null) {
+      map['hub_binding'] = Variable<String>(hubBinding);
     }
     return map;
   }
@@ -2388,6 +2415,9 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       bootstrapCompletedAtMs: bootstrapCompletedAtMs == null && nullToAbsent
           ? const Value.absent()
           : Value(bootstrapCompletedAtMs),
+      hubBinding: hubBinding == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hubBinding),
     );
   }
 
@@ -2414,6 +2444,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       bootstrapCompletedAtMs: serializer.fromJson<int?>(
         json['bootstrapCompletedAtMs'],
       ),
+      hubBinding: serializer.fromJson<String?>(json['hubBinding']),
     );
   }
   @override
@@ -2431,6 +2462,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       ),
       'bootstrapCreatedAtMs': serializer.toJson<int?>(bootstrapCreatedAtMs),
       'bootstrapCompletedAtMs': serializer.toJson<int?>(bootstrapCompletedAtMs),
+      'hubBinding': serializer.toJson<String?>(hubBinding),
     };
   }
 
@@ -2444,6 +2476,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     Value<int?> bootstrapOutboxSequence = const Value.absent(),
     Value<int?> bootstrapCreatedAtMs = const Value.absent(),
     Value<int?> bootstrapCompletedAtMs = const Value.absent(),
+    Value<String?> hubBinding = const Value.absent(),
   }) => SyncStateRow(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -2462,6 +2495,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     bootstrapCompletedAtMs: bootstrapCompletedAtMs.present
         ? bootstrapCompletedAtMs.value
         : this.bootstrapCompletedAtMs,
+    hubBinding: hubBinding.present ? hubBinding.value : this.hubBinding,
   );
   SyncStateRow copyWithCompanion(SyncStatesCompanion data) {
     return SyncStateRow(
@@ -2488,6 +2522,9 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
       bootstrapCompletedAtMs: data.bootstrapCompletedAtMs.present
           ? data.bootstrapCompletedAtMs.value
           : this.bootstrapCompletedAtMs,
+      hubBinding: data.hubBinding.present
+          ? data.hubBinding.value
+          : this.hubBinding,
     );
   }
 
@@ -2502,7 +2539,8 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
           ..write('bootstrapPayloadJson: $bootstrapPayloadJson, ')
           ..write('bootstrapOutboxSequence: $bootstrapOutboxSequence, ')
           ..write('bootstrapCreatedAtMs: $bootstrapCreatedAtMs, ')
-          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs')
+          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs, ')
+          ..write('hubBinding: $hubBinding')
           ..write(')'))
         .toString();
   }
@@ -2518,6 +2556,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     bootstrapOutboxSequence,
     bootstrapCreatedAtMs,
     bootstrapCompletedAtMs,
+    hubBinding,
   );
   @override
   bool operator ==(Object other) =>
@@ -2531,7 +2570,8 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
           other.bootstrapPayloadJson == this.bootstrapPayloadJson &&
           other.bootstrapOutboxSequence == this.bootstrapOutboxSequence &&
           other.bootstrapCreatedAtMs == this.bootstrapCreatedAtMs &&
-          other.bootstrapCompletedAtMs == this.bootstrapCompletedAtMs);
+          other.bootstrapCompletedAtMs == this.bootstrapCompletedAtMs &&
+          other.hubBinding == this.hubBinding);
 }
 
 class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
@@ -2544,6 +2584,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
   final Value<int?> bootstrapOutboxSequence;
   final Value<int?> bootstrapCreatedAtMs;
   final Value<int?> bootstrapCompletedAtMs;
+  final Value<String?> hubBinding;
   const SyncStatesCompanion({
     this.id = const Value.absent(),
     this.deviceId = const Value.absent(),
@@ -2554,6 +2595,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     this.bootstrapOutboxSequence = const Value.absent(),
     this.bootstrapCreatedAtMs = const Value.absent(),
     this.bootstrapCompletedAtMs = const Value.absent(),
+    this.hubBinding = const Value.absent(),
   });
   SyncStatesCompanion.insert({
     this.id = const Value.absent(),
@@ -2565,6 +2607,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     this.bootstrapOutboxSequence = const Value.absent(),
     this.bootstrapCreatedAtMs = const Value.absent(),
     this.bootstrapCompletedAtMs = const Value.absent(),
+    this.hubBinding = const Value.absent(),
   }) : deviceId = Value(deviceId),
        createdAtMs = Value(createdAtMs);
   static Insertable<SyncStateRow> custom({
@@ -2577,6 +2620,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     Expression<int>? bootstrapOutboxSequence,
     Expression<int>? bootstrapCreatedAtMs,
     Expression<int>? bootstrapCompletedAtMs,
+    Expression<String>? hubBinding,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2593,6 +2637,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
         'bootstrap_created_at_ms': bootstrapCreatedAtMs,
       if (bootstrapCompletedAtMs != null)
         'bootstrap_completed_at_ms': bootstrapCompletedAtMs,
+      if (hubBinding != null) 'hub_binding': hubBinding,
     });
   }
 
@@ -2606,6 +2651,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
     Value<int?>? bootstrapOutboxSequence,
     Value<int?>? bootstrapCreatedAtMs,
     Value<int?>? bootstrapCompletedAtMs,
+    Value<String?>? hubBinding,
   }) {
     return SyncStatesCompanion(
       id: id ?? this.id,
@@ -2619,6 +2665,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
       bootstrapCreatedAtMs: bootstrapCreatedAtMs ?? this.bootstrapCreatedAtMs,
       bootstrapCompletedAtMs:
           bootstrapCompletedAtMs ?? this.bootstrapCompletedAtMs,
+      hubBinding: hubBinding ?? this.hubBinding,
     );
   }
 
@@ -2660,6 +2707,9 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
         bootstrapCompletedAtMs.value,
       );
     }
+    if (hubBinding.present) {
+      map['hub_binding'] = Variable<String>(hubBinding.value);
+    }
     return map;
   }
 
@@ -2674,7 +2724,8 @@ class SyncStatesCompanion extends UpdateCompanion<SyncStateRow> {
           ..write('bootstrapPayloadJson: $bootstrapPayloadJson, ')
           ..write('bootstrapOutboxSequence: $bootstrapOutboxSequence, ')
           ..write('bootstrapCreatedAtMs: $bootstrapCreatedAtMs, ')
-          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs')
+          ..write('bootstrapCompletedAtMs: $bootstrapCompletedAtMs, ')
+          ..write('hubBinding: $hubBinding')
           ..write(')'))
         .toString();
   }
@@ -5065,6 +5116,7 @@ typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
   Value<int?> bootstrapOutboxSequence,
   Value<int?> bootstrapCreatedAtMs,
   Value<int?> bootstrapCompletedAtMs,
+  Value<String?> hubBinding,
 });
 typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
   Value<int> id,
@@ -5076,6 +5128,7 @@ typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
   Value<int?> bootstrapOutboxSequence,
   Value<int?> bootstrapCreatedAtMs,
   Value<int?> bootstrapCompletedAtMs,
+  Value<String?> hubBinding,
 });
 
 class $$SyncStatesTableFilterComposer
@@ -5129,6 +5182,11 @@ class $$SyncStatesTableFilterComposer
 
   ColumnFilters<int> get bootstrapCompletedAtMs => $composableBuilder(
     column: $table.bootstrapCompletedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hubBinding => $composableBuilder(
+    column: $table.hubBinding,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5186,6 +5244,11 @@ class $$SyncStatesTableOrderingComposer
     column: $table.bootstrapCompletedAtMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get hubBinding => $composableBuilder(
+    column: $table.hubBinding,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncStatesTableAnnotationComposer
@@ -5237,6 +5300,11 @@ class $$SyncStatesTableAnnotationComposer
     column: $table.bootstrapCompletedAtMs,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get hubBinding => $composableBuilder(
+    column: $table.hubBinding,
+    builder: (column) => column,
+  );
 }
 
 class $$SyncStatesTableTableManager
@@ -5279,6 +5347,7 @@ class $$SyncStatesTableTableManager
                 Value<int?> bootstrapOutboxSequence = const Value.absent(),
                 Value<int?> bootstrapCreatedAtMs = const Value.absent(),
                 Value<int?> bootstrapCompletedAtMs = const Value.absent(),
+                Value<String?> hubBinding = const Value.absent(),
               }) => SyncStatesCompanion(
                 id: id,
                 deviceId: deviceId,
@@ -5289,6 +5358,7 @@ class $$SyncStatesTableTableManager
                 bootstrapOutboxSequence: bootstrapOutboxSequence,
                 bootstrapCreatedAtMs: bootstrapCreatedAtMs,
                 bootstrapCompletedAtMs: bootstrapCompletedAtMs,
+                hubBinding: hubBinding,
               ),
           createCompanionCallback:
               ({
@@ -5301,6 +5371,7 @@ class $$SyncStatesTableTableManager
                 Value<int?> bootstrapOutboxSequence = const Value.absent(),
                 Value<int?> bootstrapCreatedAtMs = const Value.absent(),
                 Value<int?> bootstrapCompletedAtMs = const Value.absent(),
+                Value<String?> hubBinding = const Value.absent(),
               }) => SyncStatesCompanion.insert(
                 id: id,
                 deviceId: deviceId,
@@ -5311,6 +5382,7 @@ class $$SyncStatesTableTableManager
                 bootstrapOutboxSequence: bootstrapOutboxSequence,
                 bootstrapCreatedAtMs: bootstrapCreatedAtMs,
                 bootstrapCompletedAtMs: bootstrapCompletedAtMs,
+                hubBinding: hubBinding,
               ),
           withReferenceMapper: (p0) => p0
               .map(

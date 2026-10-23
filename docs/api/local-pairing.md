@@ -1,8 +1,9 @@
 # Review hub pairing 18C.1
 
-Checkpoint ini menyediakan sisi hub dan kontrol Fedora. Form penerima undangan,
-paired profile, dan integrasi sync client menyusul pada 18C.2. iPhone belum dapat
-dipasangkan melalui UI aplikasi pada checkpoint ini; QR/Keychain native tetap 18D.
+Panduan ini berfokus pada sisi hub dan kontrol Fedora dari 18C.1. Penerima
+undangan, paired profile, dan integrasi sync client tersedia pada 18C.2; lihat
+[review dua replica](pairing-client-review.md). QR/Keychain native dan pengujian
+iPhone tetap 18D.
 
 ## Review lokal tanpa membuka LAN
 
@@ -49,7 +50,7 @@ Jangan menganggapnya sebagai alamat yang dapat dihubungi iPhone.
 
 ## Kontrak API untuk pengujian dummy
 
-Import `docs/api/openapi.yaml` versi 0.6.0 ke Postman. Credential admin tetap
+Import `docs/api/openapi.yaml` versi 0.7.0 ke Postman. Credential admin tetap
 disimpan di Local Vault seperti [panduan autentikasi lokal](local-auth.md).
 Endpoint utama:
 
@@ -82,7 +83,7 @@ request ID, dan body yang sama. Token undangan tidak boleh dijadikan token
 permanen perangkat. Untuk HTTPS self-signed, client harus mempercayai sertifikat
 hub yang diperoleh langsung dari Fedora atau memverifikasi fingerprint-nya.
 Jangan menonaktifkan verifikasi TLS secara global. Transport Dart berpinned
-sudah tersedia untuk integrasi client pada checkpoint berikutnya.
+sudah digunakan oleh client pada 18C.2.
 
 Setelah dummy mengajukan request, tekan **Perbarui** di Fedora, cocokkan request
 ID, lalu pilih Izinkan/Tolak. Credential pending mendapat 401 pada push/pull.
@@ -96,7 +97,7 @@ dimulai diselesaikan lewat retry. Device yang sudah approved tetap terdaftar
 setelah restart, walau sesi sementara berakhir. Endpoint identity memverifikasi
 credential approved untuk recovery dan menolak credential revoked.
 
-## Saat integrasi client siap
+## Listener LAN untuk pengujian berikutnya
 
 Listener dapat dipilih pada IP LAN tertentu, misalnya
 `--pairing-listen 192.168.1.10:8789`, sesuai alamat Fedora sendiri. Wildcard,

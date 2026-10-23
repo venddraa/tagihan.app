@@ -3,6 +3,25 @@ import 'package:tagihan_vendra/data/sync/sync_credential_store.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
 
 void main() {
+  test('lookup menghapus delimiter newline dan clear tidak menaruh secret di argumen', () async {
+    final commands = <List<String>>[];
+    final store = LinuxKeyringCredentialStore(
+      command: (args, input) async {
+        commands.add(args);
+        expect(input, isNull);
+        return SecretToolResult(
+          0,
+          args.first == 'lookup' ? 'secret\n' : '',
+          '',
+        );
+      },
+    );
+    expect(await store.read('pairing', 'device'), 'secret');
+    await store.delete('pairing', 'device');
+    expect(commands.last.first, 'clear');
+    expect(commands.last, isNot(contains('secret')));
+  });
+
   test(
     'keyring adapter mengirim token melalui stdin dan memisahkan identitas',
     () async {

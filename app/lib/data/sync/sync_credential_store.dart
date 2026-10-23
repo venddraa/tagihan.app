@@ -7,6 +7,7 @@ import 'package:tagihan_vendra/data/sync/sync_http.dart';
 abstract interface class SyncCredentialStore {
   Future<String?> read(String service, String deviceId);
   Future<void> write(String service, String deviceId, String credential);
+  Future<void> delete(String service, String deviceId);
 }
 
 final class SecretToolResult {
@@ -54,7 +55,8 @@ final class LinuxKeyringCredentialStore implements SyncCredentialStore {
         'Keyring Fedora belum dapat dibaca. Periksa apakah keyring login terbuka.',
       );
     }
-    return result.output;
+    // secret-tool lookup menambahkan newline setelah secret.
+    return result.output.replaceFirst(RegExp(r'\r?\n$'), '');
   }
 
   @override
@@ -67,6 +69,20 @@ final class LinuxKeyringCredentialStore implements SyncCredentialStore {
     if (result.exitCode != 0) {
       throw const SyncAuthorizationException(
         'Credential sync belum dapat disimpan ke keyring Fedora.',
+      );
+    }
+  }
+
+  @override
+  Future<void> delete(String service, String deviceId) async {
+    final result = await _command([
+      'clear',
+      ..._attributes(service, deviceId),
+    ], null);
+    if (result.exitCode != 0 &&
+        !(result.exitCode == 1 && result.errorOutput.isEmpty)) {
+      throw const SyncAuthorizationException(
+        'Sesi pairing belum dapat dihapus dari keyring.',
       );
     }
   }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.6.0
+  version: 0.7.0
   description: >-
     Kontrak sinkronisasi lokal. Push/pull memerlukan token perangkat.
     Bootstrap dan registry perangkat hanya tersedia pada listener admin
@@ -568,6 +568,36 @@ paths:
         '429':
           $ref: '#/components/responses/PairingFailure'
         '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/pairing/requests/{request_id}/cancel:
+    servers:
+      - url: https://127.0.0.1:8789
+        description: Listener HTTPS opt-in
+    post:
+      operationId: cancelOwnPairingRequest
+      summary: Membatalkan kandidat dengan token perangkat pending
+      description: >-
+        Idempotent untuk request terminal yang belum approved. Bersifat atomik
+        terhadap approval; approved atau approving ditolak dengan 409.
+        Client wajib mempertahankan credential jika hasil belum pasti.
+      security:
+        - PendingDeviceToken: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          $ref: '#/components/responses/PairingResult'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
           $ref: '#/components/responses/PairingFailure'
   /v1/pairing/identity:
     servers:

@@ -97,11 +97,15 @@ final class LocalSyncState {
     required this.deviceId,
     required this.lastPulledSequence,
     required this.createdAt,
+    this.hubBinding,
+    this.hasSyncHistory = false,
   });
 
   final EntityId deviceId;
   final int lastPulledSequence;
   final DateTime createdAt;
+  final String? hubBinding;
+  final bool hasSyncHistory;
 }
 
 final class PreparedSyncBootstrap {

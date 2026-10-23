@@ -1,6 +1,6 @@
 // dart format width=80
 // ignore_for_file: unused_local_variable, unused_import
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +12,7 @@ import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
 import 'generated/schema_v4.dart' as v4;
 import 'generated/schema_v5.dart' as v5;
+import 'generated/schema_v6.dart' as v6;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -20,6 +21,92 @@ void main() {
   setUpAll(() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
+
+  test(
+    'migration v5 ke v6 mempertahankan bill, payment, outbox, dan cursor',
+    () async {
+      const billId = '0199e7d0-0000-7000-8000-000000000003';
+      const paymentId = '0199e7d0-0000-7000-8000-000000000004';
+      await verifier.testWithDataIntegrity(
+        oldVersion: 5,
+        newVersion: 6,
+        createOld: v5.DatabaseAtV5.new,
+        createNew: v6.DatabaseAtV6.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insert(
+            oldDb.bills,
+            const v5.BillsData(
+              id: billId,
+              name: 'Spotify',
+              amountMinorUnits: 59990,
+              currency: 'IDR',
+              billingCycle: 'monthly',
+              nextDueDate: '2026-10-25',
+              startDate: '2026-01-25',
+              status: 'active',
+              createdAtMs: 1790812800000,
+              updatedAtMs: 1790812800000,
+              version: 1,
+            ),
+          );
+          batch.insert(
+            oldDb.payments,
+            const v5.PaymentsData(
+              id: paymentId,
+              billId: billId,
+              amountMinorUnits: 59990,
+              currency: 'IDR',
+              dueDate: '2026-10-25',
+              paidAtMs: 1790812800000,
+              createdAtMs: 1790812800000,
+              updatedAtMs: 1790812800000,
+              version: 1,
+            ),
+          );
+          batch.insert(
+            oldDb.syncOutbox,
+            const v5.SyncOutboxData(
+              localSequence: 1,
+              operationId: '0199e7d0-0000-7000-8000-000000000005',
+              entityType: 'bill',
+              entityId: billId,
+              operationType: 'bill.create',
+              baseVersion: 0,
+              payloadJson: '{"preserved":true}',
+              createdAtMs: 1790812800000,
+            ),
+          );
+          batch.insert(
+            oldDb.syncState,
+            const v5.SyncStateData(
+              id: 1,
+              deviceId: '0199e7d0-0000-7000-8000-000000000001',
+              lastPulledSequence: 12,
+              createdAtMs: 1790812800000,
+              bootstrapId: '0199e7d0-0000-7000-8000-000000000030',
+              bootstrapCompletedAtMs: 1790812800000,
+            ),
+          );
+        },
+        validateItems: (db) async {
+          expect(
+            (await db.select(db.bills).getSingle()).amountMinorUnits,
+            59990,
+          );
+          expect((await db.select(db.payments).getSingle()).id, paymentId);
+          expect(
+            (await db.select(db.syncOutbox).getSingle()).payloadJson,
+            '{"preserved":true}',
+          );
+          final state = await db.select(db.syncState).getSingle();
+          expect(state.lastPulledSequence, 12);
+          expect(state.bootstrapId, '0199e7d0-0000-7000-8000-000000000030');
+          expect(state.hubBinding, isNull);
+        },
+      );
+    },
+  );
 
   group('simple database migrations', () {
     // These simple tests verify all possible schema updates with a simple (no

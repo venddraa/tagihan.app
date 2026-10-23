@@ -147,6 +147,8 @@ class SyncStates extends Table {
 
   IntColumn get bootstrapCompletedAtMs => integer().nullable()();
 
+  TextColumn get hubBinding => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 
@@ -241,7 +243,7 @@ final class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -289,6 +291,9 @@ final class AppDatabase extends _$AppDatabase {
         await migrator.createIndex(schema.appliedOperationsOperation);
         await migrator.createTable(schema.syncConflicts);
         await migrator.createIndex(schema.syncConflictsEntity);
+      },
+      from5To6: (migrator, schema) async {
+        await migrator.addColumn(schema.syncState, schema.syncState.hubBinding);
       },
     ),
     beforeOpen: (details) async {
@@ -484,7 +489,40 @@ final class AppDatabase extends _$AppDatabase {
         row.createdAtMs,
         isUtc: true,
       ),
+      hubBinding: row.hubBinding,
+      hasSyncHistory:
+          row.lastPulledSequence > 0 ||
+          row.bootstrapId != null ||
+          row.bootstrapCompletedAtMs != null,
     );
+  }
+
+  Future<void> checkPairingEligibility() async {
+    final state = await getLocalSyncState();
+    if (state.hubBinding != null || state.hasSyncHistory) {
+      throw StateError(
+        'Replica ini sudah terhubung atau pernah sync. Perpindahan hub memerlukan prosedur tersendiri.',
+      );
+    }
+  }
+
+  Future<void> bindSyncHub(String binding, {required bool paired}) {
+    if (!binding.startsWith(paired ? 'paired|' : 'local|') ||
+        binding.length > 300) {
+      throw ArgumentError('Identitas binding sync tidak valid.');
+    }
+    return transaction(() async {
+      final state = await getLocalSyncState();
+      if (state.hubBinding == binding) return;
+      if (state.hubBinding != null || (paired && state.hasSyncHistory)) {
+        throw StateError(
+          'Hub berbeda atau riwayat sync lama ditemukan. Cursor tidak direset otomatis.',
+        );
+      }
+      await (update(syncStates)..where((row) => row.id.equals(1))).write(
+        SyncStatesCompanion(hubBinding: Value(binding)),
+      );
+    });
   }
 
   Future<PreparedSyncBootstrap?> prepareSyncBootstrap({DateTime? now}) {

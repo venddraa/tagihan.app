@@ -4,8 +4,10 @@ Status: **acuan desain V1 dengan implementasi bertahap**. Fondasi Go hub,
 bootstrap, outbox, push/pull, idempotency, deteksi conflict, dan resolusi conflict
 sudah tersedia. Registry perangkat Go tersedia pada schema hub versi 2, dan
 autentikasi endpoint lokal tersedia pada tahap 18B. Tahap 18C.1 menyediakan hub
-HTTPS pairing opt-in dan kontrol Fedora; client penerima serta pairing iPhone
-end-to-end belum tersedia. Bagian delete/tombstone memuat rencana yang belum seluruhnya
+HTTPS pairing opt-in dan kontrol Fedora; tahap 18C.2 menyediakan penerima undangan,
+secure profile, recovery, serta sync HTTPS berpinned dengan binding cursor.
+Adapter Keychain dan pairing iPhone end-to-end belum tersedia.
+Bagian delete/tombstone memuat rencana yang belum seluruhnya
 diimplementasikan.
 Rancangan dan progres pairing ada di [pairing perangkat](device-pairing.md).
 

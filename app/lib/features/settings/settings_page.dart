@@ -6,6 +6,7 @@ import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/sync_coordinator.dart';
 import 'package:tagihan_vendra/features/settings/sync_conflict_section.dart';
 import 'package:tagihan_vendra/features/settings/device_pairing_section.dart';
+import 'package:tagihan_vendra/features/settings/pairing_receiver_section.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -26,6 +27,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late SyncRuntimeStatus _status;
   late StreamSubscription<SyncRuntimeStatus> _statusSubscription;
+  bool _pairingBusy = false;
 
   @override
   void initState() {
@@ -86,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 widget.syncCoordinator.bootstrapPolicy ==
                         SyncBootstrapPolicy.initializeHub
-                    ? 'Fedora ini menggunakan sync hub lokal. Service tetap dibatasi ke komputer ini sampai pairing perangkat tersedia.'
+                    ? 'Fedora ini menggunakan sync hub lokal. Perangkat lain hanya dapat terhubung melalui listener HTTPS dan persetujuan pairing.'
                     : 'Perangkat ini menyimpan data sendiri dan hanya menghubungi sync hub saat kamu meminta sinkronisasi.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -97,7 +99,8 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 20),
               FilledButton.icon(
                 key: const ValueKey('sync-now-button'),
-                onPressed: _status.phase == SyncRuntimePhase.syncing
+                onPressed:
+                    _pairingBusy || _status.phase == SyncRuntimePhase.syncing
                     ? null
                     : _synchronize,
                 icon: _status.phase == SyncRuntimePhase.syncing
@@ -123,7 +126,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 database: widget.database,
                 onResolved: widget.syncCoordinator.refreshLocalStatus,
               ),
-              DevicePairingSection(database: widget.database),
+              if (widget.syncCoordinator.managesHub)
+                DevicePairingSection(database: widget.database),
+              if (widget.syncCoordinator.pairingReceiver case final receiver?)
+                PairingReceiverSection(
+                  receiver: receiver,
+                  syncing: _status.phase == SyncRuntimePhase.syncing,
+                  onBusyChanged: (busy) => setState(() => _pairingBusy = busy),
+                ),
             ],
           ),
         ),

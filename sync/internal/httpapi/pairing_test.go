@@ -90,6 +90,30 @@ func TestPairingHTTPRequiresTLSAdminApprovalAndDeviceCredential(t *testing.T) {
 	}
 }
 
+func TestCandidateCancelEndpointRequiresProofAndPreservesApproval(t *testing.T) {
+	store := authenticatedTestStore(t)
+	manager := pairing.New(store, pairing.Info{Enabled: true})
+	invitation, err := manager.CreateInvitation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := pairing.RequestInput{ProtocolVersion: 1, InvitationID: invitation.ID, RequestID: "0199e7d0-0000-7000-8000-000000000088", DeviceID: otherDeviceID, Name: "iPhone", Credential: authFixtureToken(1)}
+	if _, err := manager.Submit(input, invitation.Token); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewPairingHandler(store, manager)
+	path := "/v1/pairing/requests/" + input.RequestID + "/cancel"
+	if response := tlsAPIRequest(handler, http.MethodPost, path, "Bearer "+invitation.Token, "{}"); response.Code != http.StatusUnauthorized {
+		t.Fatal("invitation may cancel candidate", response.Code)
+	}
+	for range 2 {
+		response := tlsAPIRequest(handler, http.MethodPost, path, "Bearer "+input.Credential, "{}")
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"cancelled"`) {
+			t.Fatal(response.Code, response.Body.String())
+		}
+	}
+}
+
 func TestPairingRateLimitDoesNotTrustForwardedHeaders(t *testing.T) {
 	store := authenticatedTestStore(t)
 	manager := pairing.New(store, pairing.Info{Enabled: true})

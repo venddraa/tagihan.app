@@ -36,6 +36,13 @@ func NewPairingHandler(database syncDatabase, manager *pairing.Manager) http.Han
 		result, err := manager.Status(request.PathValue("request_id"), bearerToken(request))
 		writePairingResult(writer, result, err)
 	})
+	mux.HandleFunc("POST /v1/pairing/requests/{request_id}/cancel", func(writer http.ResponseWriter, request *http.Request) {
+		if !allowPairing(manager, writer, request) {
+			return
+		}
+		result, err := manager.CancelRequest(request.PathValue("request_id"), bearerToken(request))
+		writePairingResult(writer, result, err)
+	})
 	mux.HandleFunc("GET /v1/pairing/identity", requireDevice(database, func(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusOK, map[string]any{"protocol_version": ProtocolVersion, "hub_id": manager.Info().HubID, "device_id": request.Context().Value(authenticatedDeviceKey{})})
 	}))

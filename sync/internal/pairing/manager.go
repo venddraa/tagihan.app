@@ -177,6 +177,28 @@ func (m *Manager) Status(requestID, credential string) (Request, error) {
 	return m.request.Request, nil
 }
 
+// CancelRequest memerlukan bukti credential kandidat dan berbagi mutex dengan
+// approval. Client tidak boleh membuang credential yang sudah mendapat akses.
+func (m *Manager) CancelRequest(requestID, credential string) (Request, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.request == nil || m.request.RequestID != requestID {
+		return Request{}, ErrExpired
+	}
+	hash, ok := tokenHash(credential)
+	if !ok || subtle.ConstantTimeCompare(hash[:], m.request.credentialHash[:]) != 1 {
+		return Request{}, ErrUnauthorized
+	}
+	m.expireRequest()
+	if m.request.Status == "approved" || m.request.Status == "approving" {
+		return Request{}, ErrConflict
+	}
+	if m.request.Status == "pending" {
+		m.request.Status = "cancelled"
+	}
+	return m.request.Request, nil
+}
+
 func (m *Manager) Requests() []Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()

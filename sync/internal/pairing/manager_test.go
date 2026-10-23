@@ -29,6 +29,73 @@ func inputFor(invitation Invitation) RequestInput {
 	return RequestInput{ProtocolVersion: 1, InvitationID: invitation.ID, RequestID: newID(), DeviceID: newID(), Name: "iPhone", Credential: base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))}
 }
 
+func TestCandidateCancellationIsIdempotentAndCannotUndoApproval(t *testing.T) {
+	manager, store := pairingFixture(t)
+	invitation, _ := manager.CreateInvitation()
+	input := inputFor(invitation)
+	if _, err := manager.Submit(input, invitation.Token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.CancelRequest(input.RequestID, strings.Repeat("A", 43)); !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("wrong credential cancel=%v", err)
+	}
+	for range 2 {
+		result, err := manager.CancelRequest(input.RequestID, input.Credential)
+		if err != nil || result.Status != "cancelled" {
+			t.Fatalf("cancel=%#v,%v", result, err)
+		}
+	}
+	if _, err := manager.Decide(context.Background(), input.RequestID, true); !errors.Is(err, ErrConflict) {
+		t.Fatal("cancelled candidate approved", err)
+	}
+	if _, err := store.AuthenticateDevice(context.Background(), input.Credential); !errors.Is(err, storage.ErrDeviceUnauthenticated) {
+		t.Fatal("cancel granted access", err)
+	}
+
+	invitation, _ = manager.CreateInvitation()
+	input = inputFor(invitation)
+	if _, err := manager.Submit(input, invitation.Token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Decide(context.Background(), input.RequestID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.CancelRequest(input.RequestID, input.Credential); !errors.Is(err, ErrConflict) {
+		t.Fatal("approved cancelled", err)
+	}
+	if _, err := store.AuthenticateDevice(context.Background(), input.Credential); err != nil {
+		t.Fatal("approved credential lost", err)
+	}
+}
+
+func TestCandidateCancelAndApproveSerialize(t *testing.T) {
+	for range 10 {
+		manager, store := pairingFixture(t)
+		invitation, _ := manager.CreateInvitation()
+		input := inputFor(invitation)
+		if _, err := manager.Submit(input, invitation.Token); err != nil {
+			t.Fatal(err)
+		}
+		var approveErr, cancelErr error
+		var group sync.WaitGroup
+		group.Add(2)
+		go func() {
+			defer group.Done()
+			_, approveErr = manager.Decide(context.Background(), input.RequestID, true)
+		}()
+		go func() { defer group.Done(); _, cancelErr = manager.CancelRequest(input.RequestID, input.Credential) }()
+		group.Wait()
+		_, authentication := store.AuthenticateDevice(context.Background(), input.Credential)
+		if approveErr == nil {
+			if !errors.Is(cancelErr, ErrConflict) || authentication != nil {
+				t.Fatalf("approval won: cancel=%v auth=%v", cancelErr, authentication)
+			}
+		} else if !errors.Is(approveErr, ErrConflict) || cancelErr != nil || !errors.Is(authentication, storage.ErrDeviceUnauthenticated) {
+			t.Fatalf("cancel won: approve=%v cancel=%v auth=%v", approveErr, cancelErr, authentication)
+		}
+	}
+}
+
 func TestPairingRequiresApprovalAndKeepsOnlyHashes(t *testing.T) {
 	manager, store := pairingFixture(t)
 	invitation, err := manager.CreateInvitation()
@@ -259,6 +326,9 @@ func TestApprovalRetryRecoversCommitWithoutContradictoryRejection(t *testing.T) 
 	}
 	if err := manager.Cancel(invitation.ID); !errors.Is(err, ErrConflict) {
 		t.Fatalf("cancel setelah commit=%v", err)
+	}
+	if _, err := manager.CancelRequest(input.RequestID, input.Credential); !errors.Is(err, ErrConflict) {
+		t.Fatalf("candidate cancel saat approval ambigu=%v", err)
 	}
 	if _, err := manager.CreateInvitation(); !errors.Is(err, ErrConflict) {
 		t.Fatalf("replacement setelah commit=%v", err)

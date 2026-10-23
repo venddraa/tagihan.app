@@ -1070,11 +1070,230 @@ i1.GeneratedColumn<int> _column_42(String aliasedName) =>
       type: i1.DriftSqlType.int,
       $customConstraints: 'NULL',
     );
+
+final class Schema6 extends i0.VersionedSchema {
+  Schema6({required super.database}) : super(version: 6);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    bills,
+    payments,
+    syncOutbox,
+    syncState,
+    appliedOperations,
+    syncConflicts,
+    billsStatusNextDueDate,
+    billsDeletedAtMs,
+    paymentsBillIdDueDate,
+    paymentsPaidAtMs,
+    paymentsDeletedAtMs,
+    syncOutboxEntity,
+    appliedOperationsOperation,
+    syncConflictsEntity,
+  ];
+  late final Shape0 bills = Shape0(
+    source: i0.VersionedTable(
+      entityName: 'bills',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_1,
+        _column_2,
+        _column_3,
+        _column_4,
+        _column_5,
+        _column_6,
+        _column_7,
+        _column_8,
+        _column_9,
+        _column_10,
+        _column_11,
+        _column_12,
+        _column_13,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape1 payments = Shape1(
+    source: i0.VersionedTable(
+      entityName: 'payments',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_14,
+        _column_3,
+        _column_4,
+        _column_15,
+        _column_16,
+        _column_9,
+        _column_10,
+        _column_11,
+        _column_12,
+        _column_13,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape2 syncOutbox = Shape2(
+    source: i0.VersionedTable(
+      entityName: 'sync_outbox',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_17,
+        _column_18,
+        _column_19,
+        _column_20,
+        _column_21,
+        _column_22,
+        _column_23,
+        _column_10,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape8 syncState = Shape8(
+    source: i0.VersionedTable(
+      entityName: 'sync_state',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_24,
+        _column_25,
+        _column_26,
+        _column_10,
+        _column_30,
+        _column_31,
+        _column_32,
+        _column_33,
+        _column_34,
+        _column_43,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape6 appliedOperations = Shape6(
+    source: i0.VersionedTable(
+      entityName: 'applied_operations',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(server_sequence)'],
+      columns: [
+        _column_27,
+        _column_35,
+        _column_19,
+        _column_20,
+        _column_13,
+        _column_29,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape7 syncConflicts = Shape7(
+    source: i0.VersionedTable(
+      entityName: 'sync_conflicts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(server_sequence)'],
+      columns: [
+        _column_35,
+        _column_27,
+        _column_19,
+        _column_20,
+        _column_36,
+        _column_37,
+        _column_38,
+        _column_39,
+        _column_40,
+        _column_41,
+        _column_42,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index billsStatusNextDueDate = i1.Index(
+    'bills_status_next_due_date',
+    'CREATE INDEX bills_status_next_due_date ON bills (status, next_due_date)',
+  );
+  final i1.Index billsDeletedAtMs = i1.Index(
+    'bills_deleted_at_ms',
+    'CREATE INDEX bills_deleted_at_ms ON bills (deleted_at_ms)',
+  );
+  final i1.Index paymentsBillIdDueDate = i1.Index(
+    'payments_bill_id_due_date',
+    'CREATE INDEX payments_bill_id_due_date ON payments (bill_id, due_date)',
+  );
+  final i1.Index paymentsPaidAtMs = i1.Index(
+    'payments_paid_at_ms',
+    'CREATE INDEX payments_paid_at_ms ON payments (paid_at_ms)',
+  );
+  final i1.Index paymentsDeletedAtMs = i1.Index(
+    'payments_deleted_at_ms',
+    'CREATE INDEX payments_deleted_at_ms ON payments (deleted_at_ms)',
+  );
+  final i1.Index syncOutboxEntity = i1.Index(
+    'sync_outbox_entity',
+    'CREATE INDEX sync_outbox_entity ON sync_outbox (entity_type, entity_id)',
+  );
+  final i1.Index appliedOperationsOperation = i1.Index(
+    'applied_operations_operation',
+    'CREATE INDEX applied_operations_operation ON applied_operations (operation_id)',
+  );
+  final i1.Index syncConflictsEntity = i1.Index(
+    'sync_conflicts_entity',
+    'CREATE INDEX sync_conflicts_entity ON sync_conflicts (entity_type, entity_id, resolved_at_ms)',
+  );
+}
+
+class Shape8 extends i0.VersionedTable {
+  Shape8({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<int> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get deviceId =>
+      columnsByName['device_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get lastPulledSequence =>
+      columnsByName['last_pulled_sequence']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get createdAtMs =>
+      columnsByName['created_at_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get bootstrapId =>
+      columnsByName['bootstrap_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get bootstrapPayloadJson =>
+      columnsByName['bootstrap_payload_json']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get bootstrapOutboxSequence =>
+      columnsByName['bootstrap_outbox_sequence']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get bootstrapCreatedAtMs =>
+      columnsByName['bootstrap_created_at_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get bootstrapCompletedAtMs =>
+      columnsByName['bootstrap_completed_at_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get hubBinding =>
+      columnsByName['hub_binding']! as i1.GeneratedColumn<String>;
+}
+
+i1.GeneratedColumn<String> _column_43(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'hub_binding',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NULL',
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
   required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
   required Future<void> Function(i1.Migrator m, Schema5 schema) from4To5,
+  required Future<void> Function(i1.Migrator m, Schema6 schema) from5To6,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -1098,6 +1317,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from4To5(migrator, schema);
         return 5;
+      case 5:
+        final schema = Schema6(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from5To6(migrator, schema);
+        return 6;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -1109,11 +1333,13 @@ i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
   required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
   required Future<void> Function(i1.Migrator m, Schema5 schema) from4To5,
+  required Future<void> Function(i1.Migrator m, Schema6 schema) from5To6,
 }) => i0.VersionedSchema.stepByStepHelper(
   step: migrationSteps(
     from1To2: from1To2,
     from2To3: from2To3,
     from3To4: from3To4,
     from4To5: from4To5,
+    from5To6: from5To6,
   ),
 );
