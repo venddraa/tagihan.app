@@ -71,7 +71,7 @@ func TestHealth(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/health", nil)
 	response := httptest.NewRecorder()
-	New(fakeDatabase{schemaVersion: 1}).ServeHTTP(response, request)
+	New(fakeDatabase{schemaVersion: storage.SchemaVersion}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -93,7 +93,7 @@ func TestHealth(t *testing.T) {
 	if body["protocol_version"] != float64(ProtocolVersion) {
 		t.Errorf("protocol_version = %v", body["protocol_version"])
 	}
-	if body["database_schema_version"] != float64(1) {
+	if body["database_schema_version"] != float64(storage.SchemaVersion) {
 		t.Errorf("database_schema_version = %v", body["database_schema_version"])
 	}
 }

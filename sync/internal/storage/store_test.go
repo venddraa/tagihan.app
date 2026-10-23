@@ -35,6 +35,7 @@ func TestOpenCreatesSecureVersionedDatabase(t *testing.T) {
 		"entity_heads",
 		"changes",
 		"hub_metadata",
+		"devices",
 	} {
 		if !tableExists(t, store.database, table) {
 			t.Errorf("table %q tidak dibuat", table)

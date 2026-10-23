@@ -12,7 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 type Store struct {
 	database *sql.DB
@@ -88,42 +88,42 @@ func (s *Store) prepare(ctx context.Context) error {
 }
 
 func (s *Store) migrate(ctx context.Context) error {
-	version, err := s.SchemaVersion(ctx)
-	if err != nil {
-		return err
-	}
-
-	switch version {
-	case 0:
-		return s.createSchema(ctx)
-	case SchemaVersion:
-		return nil
-	default:
-		return fmt.Errorf(
-			"database schema version %d tidak didukung (service mendukung %d)",
-			version,
-			SchemaVersion,
-		)
-	}
-}
-
-func (s *Store) createSchema(ctx context.Context) error {
 	transaction, err := s.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin migration: %w", err)
 	}
 	defer transaction.Rollback()
 
-	for _, statement := range schemaStatements {
-		if _, err := transaction.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply schema: %w", err)
-		}
+	var version int
+	if err := transaction.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return fmt.Errorf("read schema version: %w", err)
 	}
-	if _, err := transaction.ExecContext(
-		ctx,
-		"PRAGMA user_version = 1",
-	); err != nil {
-		return fmt.Errorf("set schema version: %w", err)
+	if version < 0 || version > SchemaVersion {
+		return fmt.Errorf(
+			"database schema version %d tidak didukung (service mendukung %d)",
+			version,
+			SchemaVersion,
+		)
+	}
+
+	for version < SchemaVersion {
+		nextVersion := version + 1
+		statements := schemaStatements
+		if nextVersion == 2 {
+			statements = deviceSchemaStatements
+		}
+		for _, statement := range statements {
+			if _, err := transaction.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply schema version %d: %w", nextVersion, err)
+			}
+		}
+		// nextVersion hanya berasal dari versi migration yang dikenal service.
+		if _, err := transaction.ExecContext(ctx, fmt.Sprintf(
+			"PRAGMA user_version = %d", nextVersion,
+		)); err != nil {
+			return fmt.Errorf("set schema version: %w", err)
+		}
+		version = nextVersion
 	}
 
 	if err := transaction.Commit(); err != nil {
@@ -188,4 +188,16 @@ var schemaStatements = []string{
 		value TEXT NOT NULL
 	)`,
 	`INSERT INTO hub_metadata(key, value) VALUES ('protocol_version', '1')`,
+}
+
+var deviceSchemaStatements = []string{
+	`CREATE TABLE devices (
+		device_id TEXT PRIMARY KEY NOT NULL,
+		name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 80),
+		credential_hash BLOB NOT NULL UNIQUE CHECK (
+			typeof(credential_hash) = 'blob' AND length(credential_hash) = 32
+		),
+		created_at_ms INTEGER NOT NULL,
+		revoked_at_ms INTEGER
+	)`,
 }
