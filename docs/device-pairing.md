@@ -1,8 +1,9 @@
 # Rancangan pairing perangkat V1
 
 Status: **rancangan disetujui untuk implementasi bertahap**. Registry storage Go
-pada tahap 18A dan autentikasi lokal pada 18B sudah tersedia. Pairing iPhone
-dan TLS LAN belum diaktifkan; bagian-bagian berikut menjelaskan perilaku yang dituju.
+pada tahap 18A dan autentikasi lokal pada 18B sudah tersedia. Tahap 18C.1
+menambahkan HTTPS hub, protokol pairing, dan kontrol Fedora. Penerima undangan
+belum dihubungkan ke coordinator sync; pairing iPhone end-to-end belum tersedia.
 
 ## Tujuan dan batas tahap ini
 
@@ -10,8 +11,8 @@ Mengizinkan iPhone menghubungi sync hub Fedora melalui jaringan lokal dengan
 persetujuan pemilik Fedora. Seluruh fungsi lokal tetap bekerja tanpa pairing.
 Satu aplikasi menggunakan satu hub pada V1; penggabungan beberapa hub ditunda.
 
-Implementasi saat ini tetap localhost. Belum ada endpoint pairing iPhone,
-dependency Flutter baru, atau perubahan pengaturan firewall.
+Listener HTTP dan admin tetap localhost. HTTPS pairing hanya aktif dengan
+`--pairing-listen` pada IP private/loopback spesifik. Firewall tidak diubah.
 
 ## Status implementasi 18A
 
@@ -67,6 +68,47 @@ sebelumnya dapat selesai. Revoke tidak membatalkan transaksi yang sedang berjala
 
 Panduan menjalankan versi ini dan menguji API ada di
 [pengujian API lokal](api/local-auth.md).
+
+## Status implementasi 18C.1
+
+- Listener HTTPS terpisah bersifat opt-in. IP publik, DNS name, dan wildcard
+  seperti `0.0.0.0`/`::` ditolak. Listener HTTP/admin tetap diwajibkan loopback.
+- Identity hub dan sertifikat self-signed ECDSA disimpan atomik dalam
+  `<database>.tls-identity.json` berizin 0600, mengikuti path hub masing-masing.
+  Hub ID dan pin tetap setelah restart.
+  TLS minimum 1.3; sertifikat berlaku satu tahun dan tidak diperbarui diam-diam.
+- Undangan membawa hub ID, alamat, pin SHA-256 sertifikat DER, ID undangan,
+  token acak 32 byte, serta expiry lima menit. Manager hanya menyimpan hash token.
+- Hanya satu sesi dan satu calon perangkat yang ditahan. Request identik dapat
+  diretry; perubahan payload atau calon kedua ditolak. Credential perangkat harus
+  berbeda dari token undangan. Pending belum boleh push/pull.
+- Request memiliki waktu tunggu lima menit sejak diterima. Deadline sesi memakai
+  monotonic clock selama service hidup. Restart membatalkan sesi sementara.
+- Admin dapat mengizinkan/menolak; approval menyimpan hash credential ke registry.
+  Status `approving` menandakan hasil penyimpanan belum terkonfirmasi: hanya retry
+  Izinkan yang diperbolehkan sampai hasilnya jelas. Retry exact-match bersifat
+  idempotent dan tidak mengaktifkan credential revoked.
+- Rate limit public pairing: 30 request/menit per alamat sumber dan 120 global.
+  Header forwarding diabaikan dan penyimpanan counter dibatasi.
+- Rute admin/bootstrap tidak dipasang pada listener HTTPS. Pairing menolak
+  request plaintext. Response JSON memakai `Cache-Control: no-store`.
+- UI Fedora menyediakan Perbarui, Hubungkan perangkat, teks undangan, konfirmasi
+  Izinkan/Tolak, serta Cabut akses. Perangkat Fedora sendiri tidak menawarkan
+  tombol Cabut sebelum alur recovery tersedia. Tidak ada polling background.
+- Parser undangan dan transport Dart berpinned certificate sudah diuji. Transport
+  memeriksa pin serta masa berlaku sebelum memberikan socket kepada HttpClient,
+  termasuk bila sertifikat lolos verifikasi CA biasa. Redirect/proxy tetap mati.
+- `crypto` 3.0.7 kini dependency langsung, memakai versi yang sebelumnya sudah
+  tersedia transitif. Tidak ada plugin kamera atau secure-storage baru.
+
+Checkpoint berikutnya, 18C.2, memasang form penerima, penyimpanan pending/paired
+profile, retry/recovery, dan transport berpinned ke coordinator sync. Client harus
+memverifikasi `/v1/pairing/identity` sebelum mempercayai hasil approval, termasuk
+sesudah restart atau ketika credential dicabut sebelum client selesai pairing.
+Satu replica tidak boleh berpindah hub dengan membawa cursor lama.
+
+QR kamera, Keychain native, dan pengujian iPhone tetap 18D. Panduan review
+checkpoint hub ada di [pengujian hub pairing](api/local-pairing.md).
 
 ## Alur yang diusulkan
 
@@ -135,7 +177,8 @@ Fedora mengaktifkan hash credential dalam transaksi. Token sudah dimiliki client
 sehingga timeout setelah persetujuan tidak membutuhkan penerbitan token baru.
 Jika request kedaluwarsa atau ditolak, token tersebut tidak pernah aktif.
 
-State awal: `pending → approved | rejected | expired | cancelled`.
+State awal: `pending → approving → approved`, atau
+`pending → rejected | expired | cancelled`.
 Hub memakai waktunya sendiri untuk expiry. Pending request kedaluwarsa lima menit
 setelah dibuat, termasuk jika client tidak melakukan polling. Undangan dan
 request pending berakhir jika Go service restart; credential perangkat yang
@@ -197,11 +240,12 @@ Dependency yang diusulkan untuk direview sebelum instalasi:
 2. **18B — autentikasi lokal:** kontrol admin, pengamanan bootstrap/push/pull,
    serta credential Fedora dan integrasinya ke coordinator menggunakan secure
    storage. Postman diperbarui bersamaan. Listener tetap loopback.
-3. **18C — pairing dan transport:** HTTPS, undangan, request, persetujuan, expiry,
-   retry, form tempel undangan, serta daftar perangkat dengan Izinkan/Tolak/Cabut.
-   Listener LAN hanya opt-in setelah seluruh pengamanan siap; rute admin tetap
-   loopback.
-4. **18D — QR dan pengujian perangkat:** pilih plugin, implementasi QR/scan,
+3. **18C.1 — hub pairing:** HTTPS, undangan, request, persetujuan, expiry, retry,
+   serta kontrol Fedora dengan Izinkan/Tolak/Cabut. Listener LAN hanya opt-in;
+   rute admin tetap loopback.
+4. **18C.2 — penerima undangan:** form tempel undangan, secure profile, recovery,
+   dan integrasi transport berpinned ke coordinator dengan perlindungan cursor.
+5. **18D — QR dan pengujian perangkat:** pilih plugin, implementasi QR/scan,
    dan pengujian native iOS ketika toolchain Mac tersedia.
 
 OpenAPI dan contoh Postman diperbarui bersama endpoint yang benar-benar sudah

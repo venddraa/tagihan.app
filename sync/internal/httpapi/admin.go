@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/venddraa/tagihan.app/sync/internal/auth"
+	"github.com/venddraa/tagihan.app/sync/internal/pairing"
 	"github.com/venddraa/tagihan.app/sync/internal/storage"
 )
 
@@ -22,11 +23,16 @@ type adminDatabase interface {
 
 // NewAdmin hanya boleh dipasang pada listener loopback kontrol lokal.
 func NewAdmin(database adminDatabase, token string) (http.Handler, error) {
+	return NewAdminWithPairing(database, token, nil)
+}
+
+func NewAdminWithPairing(database adminDatabase, token string, manager *pairing.Manager) (http.Handler, error) {
 	if !auth.ValidToken(token) {
 		return nil, errors.New("credential admin tidak valid")
 	}
 	handler := &handler{database: database}
 	mux := http.NewServeMux()
+	registerPairingAdmin(mux, manager)
 	mux.HandleFunc("POST /v1/sync/bootstrap", handler.bootstrap)
 	mux.HandleFunc("GET /v1/admin/devices", func(writer http.ResponseWriter, request *http.Request) {
 		ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second)

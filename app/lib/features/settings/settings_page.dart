@@ -5,6 +5,7 @@ import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/sync_coordinator.dart';
 import 'package:tagihan_vendra/features/settings/sync_conflict_section.dart';
+import 'package:tagihan_vendra/features/settings/device_pairing_section.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -122,6 +123,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 database: widget.database,
                 onResolved: widget.syncCoordinator.refreshLocalStatus,
               ),
+              DevicePairingSection(database: widget.database),
             ],
           ),
         ),

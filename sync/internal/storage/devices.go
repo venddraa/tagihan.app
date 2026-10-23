@@ -32,13 +32,40 @@ type Device struct {
 
 const deviceColumns = "device_id, name, credential_hash, created_at_ms, revoked_at_ms"
 
-// RegisterDevice hanya untuk pemanggil lokal tepercaya setelah persetujuan admin.
-// Pemanggil membuat credential dari 32 byte random kriptografis. Method ini belum
-// diekspos ke HTTP; request pairing dan persetujuannya dibuat pada tahap berikut.
+// RegisterDevice hanya untuk pemanggil tepercaya setelah persetujuan admin.
 func (s *Store) RegisterDevice(
 	ctx context.Context,
 	deviceID, name, credential string,
 ) (Device, error) {
+	if err := ValidateDeviceRegistration(deviceID, name, credential); err != nil {
+		return Device{}, err
+	}
+	hash, err := hashDeviceCredential(credential)
+	if err != nil {
+		return Device{}, err
+	}
+
+	return s.registerDeviceHash(ctx, deviceID, name, hash, false)
+}
+
+func ValidateDeviceRegistration(deviceID, name, credential string) error {
+	if !uuidV7Pattern.MatchString(deviceID) {
+		return ErrInvalidDevice
+	}
+	if !validDeviceName(strings.TrimSpace(name)) {
+		return ErrInvalidDeviceName
+	}
+	_, err := hashDeviceCredential(credential)
+	return err
+}
+
+// RegisterDeviceHash menerima digest dari request pairing yang telah diizinkan.
+// Token mentah tidak perlu ditahan selama menunggu persetujuan admin.
+func (s *Store) RegisterDeviceHash(ctx context.Context, deviceID, name string, hash [sha256.Size]byte) (Device, error) {
+	return s.registerDeviceHash(ctx, deviceID, name, hash, true)
+}
+
+func (s *Store) registerDeviceHash(ctx context.Context, deviceID, name string, hash [sha256.Size]byte, allowRetry bool) (Device, error) {
 	if !uuidV7Pattern.MatchString(deviceID) {
 		return Device{}, ErrInvalidDevice
 	}
@@ -46,11 +73,6 @@ func (s *Store) RegisterDevice(
 	if !validDeviceName(name) {
 		return Device{}, ErrInvalidDeviceName
 	}
-	hash, err := hashDeviceCredential(credential)
-	if err != nil {
-		return Device{}, err
-	}
-
 	row := s.database.QueryRowContext(ctx,
 		`INSERT INTO devices(device_id, name, credential_hash, created_at_ms)
 		 VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING `+deviceColumns,
@@ -58,6 +80,16 @@ func (s *Store) RegisterDevice(
 	)
 	device, _, err := scanDevice(row)
 	if errors.Is(err, sql.ErrNoRows) {
+		if allowRetry {
+			existing, storedHash, readErr := scanDevice(s.database.QueryRowContext(ctx,
+				"SELECT "+deviceColumns+" FROM devices WHERE device_id = ?", strings.ToLower(deviceID)))
+			if readErr == nil && existing.RevokedAt == nil && existing.Name == name && subtle.ConstantTimeCompare(storedHash, hash[:]) == 1 {
+				return existing, nil
+			}
+			if readErr != nil && !errors.Is(readErr, sql.ErrNoRows) {
+				return Device{}, fmt.Errorf("read pairing approval retry: %w", readErr)
+			}
+		}
 		// Tidak ada upsert: retry tidak boleh mengganti token atau mengaktifkan
 		// kembali perangkat yang sudah dicabut aksesnya.
 		return Device{}, ErrDeviceRegistrationConflict

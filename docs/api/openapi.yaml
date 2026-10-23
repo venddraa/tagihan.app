@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.5.0
+  version: 0.6.0
   description: >-
     Kontrak sinkronisasi lokal. Push/pull memerlukan token perangkat.
     Bootstrap dan registry perangkat hanya tersedia pada listener admin
-    localhost port 8788 dengan token admin terpisah. Kedua listener belum
-    boleh diekspos ke jaringan lokal.
+    localhost port 8788 dengan token admin terpisah. Kedua listener HTTP tetap
+    loopback. HTTPS pairing tersedia opt-in pada IP private/loopback tertentu.
 servers:
   - url: http://127.0.0.1:8787
     description: Service lokal Fedora
+  - url: https://127.0.0.1:8789
+    description: HTTPS opt-in; tidak berjalan jika pairing belum diaktifkan
 paths:
   /v1/health:
     get:
@@ -370,8 +372,249 @@ paths:
           description: Perangkat tidak terdaftar
         '503':
           $ref: '#/components/responses/DeviceStorageUnavailable'
+  /v1/admin/pairing:
+    servers:
+      - url: http://127.0.0.1:8788
+    get:
+      operationId: getPairingOverview
+      summary: Membaca kesiapan HTTPS dan request pairing tanpa token mentah
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          description: Status pairing; enabled false jika listener belum diaktifkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairingOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/admin/pairing/invitations:
+    servers:
+      - url: http://127.0.0.1:8788
+    post:
+      operationId: createPairingInvitation
+      summary: Membuat undangan satu calon perangkat yang berlaku lima menit
+      security:
+        - AdminToken: []
+      responses:
+        '201':
+          description: Undangan rahasia sementara; token tidak dapat dibaca ulang
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [protocol_version, invitation]
+                properties:
+                  protocol_version:
+                    const: 1
+                  invitation:
+                    $ref: '#/components/schemas/PairingInvitation'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/admin/pairing/invitations/{invitation_id}/cancel:
+    servers:
+      - url: http://127.0.0.1:8788
+    post:
+      operationId: cancelPairingInvitation
+      summary: Membatalkan undangan dan request pending terkait
+      security:
+        - AdminToken: []
+      parameters:
+        - name: invitation_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          description: Undangan dibatalkan
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/admin/pairing/requests/{request_id}/approve:
+    servers:
+      - url: http://127.0.0.1:8788
+    post:
+      operationId: approvePairingRequest
+      summary: Mengizinkan calon perangkat secara eksplisit
+      security:
+        - AdminToken: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          $ref: '#/components/responses/PairingResult'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/admin/pairing/requests/{request_id}/reject:
+    servers:
+      - url: http://127.0.0.1:8788
+    post:
+      operationId: rejectPairingRequest
+      summary: Menolak calon perangkat secara eksplisit
+      security:
+        - AdminToken: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          $ref: '#/components/responses/PairingResult'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/pairing/requests:
+    servers:
+      - url: https://127.0.0.1:8789
+        description: Listener HTTPS opt-in
+    post:
+      operationId: submitPairingRequest
+      summary: Mengajukan perangkat dengan undangan; belum memberi akses sync
+      security:
+        - InvitationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PairingSubmitRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PairingResult'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/pairing/requests/{request_id}:
+    servers:
+      - url: https://127.0.0.1:8789
+        description: Listener HTTPS opt-in
+    get:
+      operationId: getPairingRequestStatus
+      summary: Memeriksa hasil dengan token perangkat pending milik request ini
+      security:
+        - PendingDeviceToken: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          $ref: '#/components/responses/PairingResult'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
+  /v1/pairing/identity:
+    servers:
+      - url: https://127.0.0.1:8789
+        description: Listener HTTPS opt-in
+    get:
+      operationId: getApprovedPairingIdentity
+      summary: Memverifikasi identitas hub dan credential approved setelah restart
+      security:
+        - DeviceToken: []
+      responses:
+        '200':
+          description: Identitas hub dan perangkat yang terautentikasi
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [protocol_version, hub_id, device_id]
+                properties:
+                  protocol_version:
+                    const: 1
+                  hub_id:
+                    $ref: '#/components/schemas/UUIDv7'
+                  device_id:
+                    $ref: '#/components/schemas/UUIDv7'
+        '400':
+          $ref: '#/components/responses/PairingFailure'
+        '401':
+          $ref: '#/components/responses/PairingFailure'
+        '409':
+          $ref: '#/components/responses/PairingFailure'
+        '410':
+          $ref: '#/components/responses/PairingFailure'
+        '429':
+          $ref: '#/components/responses/PairingFailure'
+        '503':
+          $ref: '#/components/responses/PairingFailure'
 components:
   securitySchemes:
+    InvitationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Single-use invitation token
+    PendingDeviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Device token bound to this pending request
     DeviceToken:
       type: http
       scheme: bearer
@@ -381,6 +624,26 @@ components:
       scheme: bearer
       bearerFormat: Separate local admin token
   responses:
+    PairingFailure:
+      description: >-
+        Error pairing. 400 invalid input; 401 credential salah; 409 request/ID
+        sudah dipakai; 410 sesi berakhir; 429 rate limit; 503 storage/service gagal.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIErrorResponse'
+    PairingResult:
+      description: Snapshot request tanpa credential atau hash
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [protocol_version, request]
+            properties:
+              protocol_version:
+                const: 1
+              request:
+                $ref: '#/components/schemas/PairingRequest'
     Unauthorized:
       description: Credential tidak ada, salah, atau akses perangkat dicabut
       headers:
@@ -410,6 +673,105 @@ components:
           schema:
             $ref: '#/components/schemas/APIErrorResponse'
   schemas:
+    PairingInvitation:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, hub_id, endpoint, certificate_sha256, invitation_id, invitation_token, expires_at]
+      properties:
+        protocol_version:
+          const: 1
+        hub_id:
+          $ref: '#/components/schemas/UUIDv7'
+        endpoint:
+          type: string
+          format: uri
+          description: HTTPS pada IP private/loopback spesifik; bukan listener admin.
+        certificate_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        invitation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        invitation_token:
+          type: string
+          description: Rahasia sementara; jangan simpan pada koleksi atau log.
+        expires_at:
+          type: string
+          format: date-time
+    PairingSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, invitation_id, request_id, device_id, name, credential]
+      properties:
+        protocol_version:
+          const: 1
+        invitation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        request_id:
+          $ref: '#/components/schemas/UUIDv7'
+        device_id:
+          $ref: '#/components/schemas/UUIDv7'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        credential:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          writeOnly: true
+          description: Token random 32 byte terpisah dari token undangan.
+    PairingRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, device_id, name, status, expires_at]
+      properties:
+        request_id:
+          $ref: '#/components/schemas/UUIDv7'
+        device_id:
+          $ref: '#/components/schemas/UUIDv7'
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approving, approved, rejected, expired, cancelled]
+        expires_at:
+          type: string
+          format: date-time
+    PairingOverview:
+      type: object
+      required: [protocol_version, info, requests]
+      properties:
+        active_invitation:
+          type: [object, 'null']
+          description: Metadata tanpa token; null setelah undangan dipakai atau berakhir.
+          properties:
+            invitation_id:
+              $ref: '#/components/schemas/UUIDv7'
+            expires_at:
+              type: string
+              format: date-time
+        protocol_version:
+          const: 1
+        info:
+          type: object
+          required: [enabled]
+          properties:
+            enabled:
+              type: boolean
+            hub_id:
+              $ref: '#/components/schemas/UUIDv7'
+            endpoint:
+              type: string
+              format: uri
+            certificate_sha256:
+              type: string
+            certificate_pem:
+              type: string
+              description: Sertifikat publik; tidak pernah memuat private key.
+        requests:
+          type: array
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/PairingRequest'
     Device:
       type: object
       additionalProperties: false

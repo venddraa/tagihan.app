@@ -369,6 +369,7 @@ func writeAPIError(
 }
 
 func writeJSON(writer http.ResponseWriter, status int, value any) {
+	writer.Header().Set("Cache-Control", "no-store")
 	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	writer.Header().Set("Cache-Control", "no-store")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")

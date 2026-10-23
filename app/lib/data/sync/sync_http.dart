@@ -68,8 +68,9 @@ Future<SyncHTTPResponse> requestSyncJSONWithDartIO(
   required String method,
   String? body,
   Map<String, String> headers = const {},
+  HttpClient Function()? createClient,
 }) async {
-  final client = HttpClient()
+  final client = (createClient?.call() ?? HttpClient())
     ..connectionTimeout = const Duration(seconds: 5)
     ..findProxy = (_) => 'DIRECT';
   try {

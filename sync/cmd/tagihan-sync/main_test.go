@@ -2,6 +2,19 @@ package main
 
 import "testing"
 
+func TestPairingListenerRequiresExplicitPrivateAddress(t *testing.T) {
+	for _, address := range []string{"127.0.0.1:8789", "192.168.1.2:8789", "10.0.0.1:8789", "[fd00::1]:8789"} {
+		if err := requirePairingAddress(address); err != nil {
+			t.Errorf("%s: %v", address, err)
+		}
+	}
+	for _, address := range []string{"0.0.0.0:8789", "[::]:8789", "8.8.8.8:8789", "localhost:8789", "192.168.1.2:0", "192.168.1.2:99999"} {
+		if err := requirePairingAddress(address); err == nil {
+			t.Errorf("alamat %s diterima", address)
+		}
+	}
+}
+
 func TestRequireLoopback(t *testing.T) {
 	t.Parallel()
 
