@@ -27,13 +27,12 @@ type handler struct {
 	database databaseHealth
 }
 
-func New(database databaseHealth) http.Handler {
+func New(database syncDatabase) http.Handler {
 	handler := &handler{database: database}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", handler.health)
-	mux.HandleFunc("POST /v1/sync/bootstrap", handler.bootstrap)
-	mux.HandleFunc("POST /v1/sync/push", handler.push)
-	mux.HandleFunc("GET /v1/sync/pull", handler.pull)
+	mux.HandleFunc("POST /v1/sync/push", requireDevice(database, handler.push))
+	mux.HandleFunc("GET /v1/sync/pull", requireDevice(database, handler.pull))
 	return mux
 }
 
@@ -290,6 +289,12 @@ func (h *handler) push(writer http.ResponseWriter, request *http.Request) {
 		)
 		return
 	}
+	deviceID, _ := request.Context().Value(authenticatedDeviceKey{}).(string)
+	if !strings.EqualFold(input.DeviceID, deviceID) {
+		writeAPIError(writer, http.StatusForbidden, "device_identity_mismatch", "device_id tidak sesuai credential.")
+		return
+	}
+	input.DeviceID = deviceID
 	if len(input.Operations) == 0 {
 		writeAPIError(
 			writer,

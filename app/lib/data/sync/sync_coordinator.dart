@@ -39,6 +39,7 @@ final class SyncCoordinator {
     required SyncPullClient pullClient,
     SyncBootstrapPolicy bootstrapPolicy = SyncBootstrapPolicy.skip,
     SyncBootstrapClient? bootstrapClient,
+    Future<void> Function()? prepareSync,
   }) {
     if (bootstrapPolicy == SyncBootstrapPolicy.initializeHub &&
         bootstrapClient == null) {
@@ -52,6 +53,7 @@ final class SyncCoordinator {
       pushClient,
       pullClient,
       bootstrapPolicy,
+      prepareSync,
     );
   }
 
@@ -61,6 +63,7 @@ final class SyncCoordinator {
     this._pushClient,
     this._pullClient,
     this.bootstrapPolicy,
+    this._prepareSync,
   );
 
   final AppDatabase _database;
@@ -68,6 +71,7 @@ final class SyncCoordinator {
   final SyncPushClient _pushClient;
   final SyncPullClient _pullClient;
   final SyncBootstrapPolicy bootstrapPolicy;
+  final Future<void> Function()? _prepareSync;
   final StreamController<SyncRuntimeStatus> _statusController =
       StreamController<SyncRuntimeStatus>.broadcast(sync: true);
 
@@ -164,6 +168,7 @@ final class SyncCoordinator {
         ),
       );
 
+      await _prepareSync?.call();
       if (bootstrapPolicy == SyncBootstrapPolicy.initializeHub) {
         await _bootstrapClient!.bootstrapIfNeeded();
       }
@@ -213,6 +218,11 @@ final class SyncCoordinator {
           message: 'Semua perubahan sudah tersinkron.',
           lastSyncAt: _lastSyncAt,
         ),
+      );
+    } on SyncAuthorizationException catch (error) {
+      return _publishCurrent(
+        phase: SyncRuntimePhase.failed,
+        message: error.message,
       );
     } on SyncUnavailableException {
       return _publishCurrent(

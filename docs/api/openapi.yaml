@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: Tagihan Vendra Sync API
-  version: 0.4.0
+  version: 0.5.0
   description: >-
-    Kontrak service sinkronisasi lokal. Health check, bootstrap satu kali, dan
-    push operation, dan pull perubahan berurutan sudah tersedia.
+    Kontrak sinkronisasi lokal. Push/pull memerlukan token perangkat.
+    Bootstrap dan registry perangkat hanya tersedia pada listener admin
+    localhost port 8788 dengan token admin terpisah. Kedua listener belum
+    boleh diekspos ke jaringan lokal.
 servers:
   - url: http://127.0.0.1:8787
     description: Service lokal Fedora
@@ -27,7 +29,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /v1/sync/bootstrap:
+    servers:
+      - url: http://127.0.0.1:8788
+        description: Kontrol admin localhost
     post:
+      security:
+        - AdminToken: []
       operationId: bootstrapHub
       summary: Mengisi hub kosong dengan snapshot awal dari Fedora
       requestBody:
@@ -58,6 +65,8 @@ paths:
               payments: []
               created_at: '2026-10-17T00:00:00Z'
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Snapshot diterima atau retry dikenali sebagai duplicate
           content:
@@ -95,6 +104,8 @@ paths:
                 $ref: '#/components/schemas/APIErrorResponse'
   /v1/sync/push:
     post:
+      security:
+        - DeviceToken: []
       operationId: pushChanges
       summary: Mengirim maksimal 100 operation lokal ke sync hub
       requestBody:
@@ -129,6 +140,14 @@ paths:
                     version: 1
                   created_at: '2026-10-17T00:00:00Z'
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: device_id pada body tidak sesuai identitas credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
         '200':
           description: Batch diproses; periksa status setiap operation
           content:
@@ -173,6 +192,8 @@ paths:
                 $ref: '#/components/schemas/APIErrorResponse'
   /v1/sync/pull:
     get:
+      security:
+        - DeviceToken: []
       operationId: pullChanges
       summary: Mengambil perubahan hub setelah cursor tertentu
       parameters:
@@ -193,6 +214,8 @@ paths:
             maximum: 100
             default: 100
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Halaman perubahan terurut berdasarkan server sequence
           content:
@@ -237,8 +260,171 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIErrorResponse'
+  /v1/admin/devices:
+    servers:
+      - url: http://127.0.0.1:8788
+    get:
+      operationId: listDevices
+      summary: Membaca metadata perangkat termasuk status revoked
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          description: Daftar perangkat; tidak berisi token atau hash credential
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [protocol_version, devices]
+                properties:
+                  protocol_version:
+                    const: 1
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/DeviceStorageUnavailable'
+    post:
+      operationId: registerLocalDevice
+      summary: Mendaftarkan credential melalui kontrol admin tepercaya
+      description: >-
+        Token dibuat client dan disimpan di secure storage terlebih dahulu.
+        Retry dengan ID, nama, dan token sama mengembalikan 200.
+        ID/token berbeda atau credential revoked tidak ditimpa dan menghasilkan 409.
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [protocol_version, device_id, name, credential]
+              properties:
+                protocol_version:
+                  type: integer
+                  const: 1
+                device_id:
+                  $ref: '#/components/schemas/UUIDv7'
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  description: Nama di-trim dan tidak boleh mengandung control character.
+                credential:
+                  type: string
+                  minLength: 43
+                  maxLength: 43
+                  pattern: '^[A-Za-z0-9_-]{43}$'
+                  writeOnly: true
+                  description: Encoding base64url canonical tanpa padding dari 32 byte random kriptografis.
+      responses:
+        '201':
+          $ref: '#/components/responses/DeviceResult'
+        '200':
+          $ref: '#/components/responses/DeviceResult'
+        '400':
+          description: Identitas, nama, credential, atau JSON tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Protocol berbeda atau identitas/credential sudah dipakai
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIErrorResponse'
+        '415':
+          description: Content-Type bukan application/json
+        '503':
+          $ref: '#/components/responses/DeviceStorageUnavailable'
+  /v1/admin/devices/{device_id}/revoke:
+    servers:
+      - url: http://127.0.0.1:8788
+    post:
+      operationId: revokeDevice
+      summary: Mencabut akses perangkat tanpa menghapus data finansial
+      security:
+        - AdminToken: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '200':
+          $ref: '#/components/responses/DeviceResult'
+        '400':
+          description: device_id tidak valid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Perangkat tidak terdaftar
+        '503':
+          $ref: '#/components/responses/DeviceStorageUnavailable'
 components:
+  securitySchemes:
+    DeviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Base64url random 32-byte device token
+    AdminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Separate local admin token
+  responses:
+    Unauthorized:
+      description: Credential tidak ada, salah, atau akses perangkat dicabut
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIErrorResponse'
+    DeviceResult:
+      description: Metadata perangkat yang sudah disimpan
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [protocol_version, device]
+            properties:
+              protocol_version:
+                const: 1
+              device:
+                $ref: '#/components/schemas/Device'
+    DeviceStorageUnavailable:
+      description: Penyimpanan registry perangkat belum tersedia
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIErrorResponse'
   schemas:
+    Device:
+      type: object
+      additionalProperties: false
+      required: [device_id, name, created_at, revoked_at]
+      properties:
+        device_id:
+          $ref: '#/components/schemas/UUIDv7'
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: [string, 'null']
+          format: date-time
     HealthResponse:
       type: object
       additionalProperties: false

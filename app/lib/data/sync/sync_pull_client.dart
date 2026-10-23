@@ -74,6 +74,7 @@ final class SyncPullClient {
           },
         );
     final response = await _getJSON(endpoint);
+    checkSyncAuthorization(response);
     if (response.statusCode != HttpStatus.ok) {
       throw SyncUnavailableException(
         'Sync service merespons HTTP ${response.statusCode}.',

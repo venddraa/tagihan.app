@@ -1,8 +1,8 @@
 # Rancangan pairing perangkat V1
 
 Status: **rancangan disetujui untuk implementasi bertahap**. Registry storage Go
-pada tahap 18A sudah tersedia. Autentikasi endpoint, pairing, dan TLS belum
-diaktifkan; bagian-bagian berikut menjelaskan perilaku yang dituju.
+pada tahap 18A dan autentikasi lokal pada 18B sudah tersedia. Pairing iPhone
+dan TLS LAN belum diaktifkan; bagian-bagian berikut menjelaskan perilaku yang dituju.
 
 ## Tujuan dan batas tahap ini
 
@@ -10,8 +10,8 @@ Mengizinkan iPhone menghubungi sync hub Fedora melalui jaringan lokal dengan
 persetujuan pemilik Fedora. Seluruh fungsi lokal tetap bekerja tanpa pairing.
 Satu aplikasi menggunakan satu hub pada V1; penggabungan beberapa hub ditunda.
 
-Implementasi saat ini tetap localhost. Belum ada endpoint pairing, dependency
-baru, atau perubahan pengaturan firewall.
+Implementasi saat ini tetap localhost. Belum ada endpoint pairing iPhone,
+dependency Flutter baru, atau perubahan pengaturan firewall.
 
 ## Status implementasi 18A
 
@@ -28,14 +28,45 @@ baru, atau perubahan pengaturan firewall.
   credential secara diam-diam.
 - Migration mempertahankan operation, snapshot, change log, dan protocol version.
   ID perangkat dalam operation lama tidak otomatis menjadi perangkat tepercaya.
-- Registry belum dipasang sebagai middleware HTTP. Bootstrap/push/pull lokal
-  tetap memakai kontrak yang ada sampai integrasi credential Fedora selesai.
+- Registry menjadi dasar autentikasi endpoint sejak implementasi 18B berikut.
 
 Setelah Go service direstart dengan kode baru, `GET /v1/health` melaporkan
 `database_schema_version: 2`, sedangkan `protocol_version` tetap `1`.
-Tidak ada langkah pairing baru di Postman pada tahap ini. Binary service lama
-dengan schema version 1 tidak dapat membuka database hub yang sudah dimigrasikan;
+Binary service lama dengan schema version 1 tidak dapat membuka database hub yang sudah dimigrasikan;
 rollback binary memerlukan backup hub yang cocok, bukan penghapusan database.
+
+## Status implementasi 18B
+
+- Listener sync `127.0.0.1:8787` menyediakan health tanpa autentikasi dan push/pull
+  dengan token perangkat. Body push wajib cocok dengan device_id milik token.
+- Listener admin `127.0.0.1:8788` menyediakan bootstrap, registrasi, daftar, dan
+  revoke perangkat dengan token admin terpisah. Rute admin tidak dipasang pada
+  listener sync. Kedua alamat tetap diwajibkan loopback oleh command Go.
+- Go membuat `admin.token` secara atomik di direktori hub, dengan permission
+  direktori 0700 dan file 0600. Token yang sudah ada tidak diganti diam-diam.
+  File rusak, symlink, atau permission tidak aman menyebabkan startup gagal.
+- Registrasi identik aman diulang; retry berbeda, credential revoked, dan token
+  perangkat yang sama dengan token admin ditolak.
+- Fedora menyimpan token perangkat lewat `/usr/bin/secret-tool` ke Secret Service
+  keyring. Tool tersebut sudah tersedia di environment Fedora project ini dari
+  paket `libsecret`. Token dikirim lewat stdin, tidak lewat argumen proses.
+- Flutter mempersiapkan akses hanya saat tombol sync ditekan. Token disimpan ke
+  keyring sebelum registrasi sehingga timeout aman diulang. Pembacaan keyring
+  gagal tidak dialihkan ke file biasa atau SQLite.
+- Bootstrap dikirim ke listener admin; push/pull memakai credential perangkat.
+  Redirect dan proxy dinonaktifkan pada transport lokal. Target non-loopback
+  ditolak sebelum membaca atau mengirim credential, sampai transport pairing siap.
+- Response 401/403 tampil sebagai kegagalan credential, bukan status hub offline.
+  Outbox, cursor, serta snapshot bootstrap tidak ditandai selesai saat ditolak.
+
+Belum ada instalasi plugin secure storage Flutter. Adapter Keychain iOS dan
+dukungan re-pair/rotasi credential tetap tahap berikutnya. Jika credential Fedora
+dicabut lewat admin, aplikasi tidak otomatis mendaftarkan token pengganti.
+Permintaan yang masuk setelah revoke ditolak; request yang telah lolos autentikasi
+sebelumnya dapat selesai. Revoke tidak membatalkan transaksi yang sedang berjalan.
+
+Panduan menjalankan versi ini dan menguji API ada di
+[pengujian API lokal](api/local-auth.md).
 
 ## Alur yang diusulkan
 
@@ -141,8 +172,9 @@ credential diam-diam ketika ID perangkat bertabrakan.
 
 ## Penyimpanan client dan dependency
 
-Usulan penyimpanan token adalah `flutter_secure_storage`: Keychain pada iOS dan
-secure storage desktop pada Fedora. Konfigurasi iOS harus device-only serta
+Pada 18B, Fedora menggunakan Secret Service lewat `secret-tool` yang sudah ada,
+sehingga tidak memerlukan plugin atau development header baru. Keychain pada iOS
+direncanakan lewat `flutter_secure_storage`. Konfigurasi iOS harus device-only serta
 tidak memakai sinkronisasi iCloud. Tidak perlu biometric prompt pada setiap sync.
 Jika secure storage terkunci atau gagal, sync dihentikan dengan pesan yang jelas;
 credential tidak dialihkan ke SQLite biasa. CRUD lokal tetap dapat digunakan.

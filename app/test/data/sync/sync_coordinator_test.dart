@@ -34,6 +34,38 @@ void main() {
     );
   });
 
+  test(
+    'gagal menyiapkan credential tidak mengirim data atau menghapus outbox',
+    () async {
+      await database.insertBill(_bill(1));
+      var networkCalls = 0;
+      final coordinator = SyncCoordinator(
+        database: database,
+        prepareSync: () async =>
+            throw const SyncAuthorizationException('Keyring belum terbuka.'),
+        pushClient: _pushClient(
+          database,
+          onRequest: (_) {
+            networkCalls++;
+          },
+        ),
+        pullClient: _pullClient(
+          database,
+          onRequest: (_) {
+            networkCalls++;
+          },
+        ),
+      );
+      addTearDown(coordinator.close);
+      final result = await coordinator.synchronize();
+      expect(result.phase, SyncRuntimePhase.failed);
+      expect(result.message, 'Keyring belum terbuka.');
+      expect(result.pendingChanges, 1);
+      expect(networkCalls, 0);
+      expect(await database.countPendingSyncOperations(), 1);
+    },
+  );
+
   test('membaca jumlah perubahan lokal tanpa menghubungi hub', () async {
     await database.insertBill(_bill(1));
     var networkCalled = false;

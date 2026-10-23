@@ -32,39 +32,63 @@ final class SyncProtocolException implements Exception {
   String toString() => message;
 }
 
-Future<SyncHTTPResponse> getSyncJSONWithDartIO(Uri uri) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-  try {
-    final request = await client
-        .getUrl(uri)
-        .timeout(const Duration(seconds: 5));
-    request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
-    final response = await request.close().timeout(const Duration(seconds: 15));
-    final responseBody = await utf8.decoder.bind(response).join();
-    return SyncHTTPResponse(
-      statusCode: response.statusCode,
-      body: responseBody,
-    );
-  } on SocketException catch (_) {
-    throw const SyncUnavailableException();
-  } on TimeoutException catch (_) {
-    throw const SyncUnavailableException('Sync service tidak merespons.');
-  } finally {
-    client.close(force: true);
+final class SyncAuthorizationException implements Exception {
+  const SyncAuthorizationException([
+    this.message = 'Credential sync tidak valid atau akses perangkat dicabut.',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+void checkSyncAuthorization(SyncHTTPResponse response) {
+  if (response.statusCode == HttpStatus.unauthorized ||
+      response.statusCode == HttpStatus.forbidden) {
+    throw const SyncAuthorizationException();
   }
 }
 
-Future<SyncHTTPResponse> postSyncJSONWithDartIO(Uri uri, String body) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+Future<SyncHTTPResponse> getSyncJSONWithDartIO(Uri uri) =>
+    requestSyncJSONWithDartIO(uri, method: 'GET');
+
+Future<SyncHTTPResponse> postSyncJSONWithDartIO(Uri uri, String body) =>
+    requestSyncJSONWithDartIO(uri, method: 'POST', body: body);
+
+typedef SyncHTTPRequest = Future<SyncHTTPResponse> Function(
+  Uri uri, {
+  required String method,
+  String? body,
+  Map<String, String> headers,
+});
+
+Future<SyncHTTPResponse> requestSyncJSONWithDartIO(
+  Uri uri, {
+  required String method,
+  String? body,
+  Map<String, String> headers = const {},
+}) async {
+  final client = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 5)
+    ..findProxy = (_) => 'DIRECT';
   try {
     final request = await client
-        .postUrl(uri)
+        .openUrl(method, uri)
         .timeout(const Duration(seconds: 5));
-    request.headers.contentType = ContentType.json;
+    request.followRedirects = false;
     request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
-    request.write(body);
+    headers.forEach(request.headers.set);
+    if (body != null) {
+      request.headers.contentType = ContentType.json;
+      request.write(body);
+    }
     final response = await request.close().timeout(const Duration(seconds: 15));
-    final responseBody = await utf8.decoder.bind(response).join();
+    // join juga dibatasi, agar server yang tidak menutup body tidak menggantung sync.
+    final responseBody = await utf8.decoder
+        .bind(response)
+        .join()
+        .timeout(const Duration(seconds: 15));
     return SyncHTTPResponse(
       statusCode: response.statusCode,
       body: responseBody,

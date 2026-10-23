@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/venddraa/tagihan.app/sync/internal/auth"
 	"github.com/venddraa/tagihan.app/sync/internal/httpapi"
 	"github.com/venddraa/tagihan.app/sync/internal/storage"
 )
@@ -36,6 +37,8 @@ func run() error {
 		"127.0.0.1:8787",
 		"alamat HTTP; milestone ini hanya mengizinkan loopback",
 	)
+	adminAddress := flag.String("admin-listen", "127.0.0.1:8788", "alamat kontrol admin; hanya loopback")
+	adminTokenPath := flag.String("admin-token-file", filepath.Join(filepath.Dir(defaultDatabase), "admin.token"), "file credential kontrol admin lokal")
 	databasePath := flag.String(
 		"database",
 		defaultDatabase,
@@ -46,11 +49,23 @@ func run() error {
 	if err := requireLoopback(*listenAddress); err != nil {
 		return err
 	}
+	if err := requireLoopback(*adminAddress); err != nil {
+		return err
+	}
 	listener, err := net.Listen("tcp", *listenAddress)
 	if err != nil {
 		return fmt.Errorf("listen HTTP: %w", err)
 	}
 	defer listener.Close()
+	adminListener, err := net.Listen("tcp", *adminAddress)
+	if err != nil {
+		return fmt.Errorf("listen admin HTTP: %w", err)
+	}
+	defer adminListener.Close()
+	adminToken, err := auth.LoadOrCreateLocalToken(*adminTokenPath)
+	if err != nil {
+		return fmt.Errorf("prepare admin credential: %w", err)
+	}
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -64,6 +79,10 @@ func run() error {
 		return fmt.Errorf("open hub storage: %w", err)
 	}
 	defer store.Close()
+	adminHandler, err := httpapi.NewAdmin(store, adminToken)
+	if err != nil {
+		return err
+	}
 
 	server := &http.Server{
 		Addr:              *listenAddress,
@@ -73,12 +92,23 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	adminServer := &http.Server{
+		Addr: *adminAddress, Handler: adminHandler,
+		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
+		WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
+	}
 
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		slog.Info("sync service started", "address", listener.Addr().String())
 		serverErrors <- server.Serve(listener)
 	}()
+	go func() {
+		slog.Info("admin service started", "address", adminListener.Addr().String())
+		serverErrors <- adminServer.Serve(adminListener)
+	}()
+	defer server.Close()
+	defer adminServer.Close()
 
 	select {
 	case <-ctx.Done():
@@ -90,8 +120,13 @@ func run() error {
 		if err := server.Shutdown(shutdownContext); err != nil {
 			return fmt.Errorf("shutdown HTTP server: %w", err)
 		}
-		if err := <-serverErrors; !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve HTTP: %w", err)
+		if err := adminServer.Shutdown(shutdownContext); err != nil {
+			return fmt.Errorf("shutdown admin HTTP server: %w", err)
+		}
+		for range 2 {
+			if err := <-serverErrors; !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("serve HTTP: %w", err)
+			}
 		}
 		slog.Info("sync service stopped")
 		return nil

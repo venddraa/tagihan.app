@@ -26,6 +26,43 @@ type fakeDatabase struct {
 	onPull          func(int64, int)
 }
 
+const testAuthToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+const testAuthDeviceID = "0199e7d0-0000-7000-8000-000000000001"
+
+func (database fakeDatabase) AuthenticateDevice(context.Context, string) (storage.Device, error) {
+	return storage.Device{ID: testAuthDeviceID}, database.err
+}
+
+func (database fakeDatabase) RegisterDevice(context.Context, string, string, string) (storage.Device, error) {
+	return storage.Device{}, errors.New("register tidak dikonfigurasi untuk fixture")
+}
+
+func (database fakeDatabase) ListDevices(context.Context) ([]storage.Device, error) {
+	return nil, errors.New("list tidak dikonfigurasi untuk fixture")
+}
+
+func (database fakeDatabase) RevokeDevice(context.Context, string) (storage.Device, error) {
+	return storage.Device{}, errors.New("revoke tidak dikonfigurasi untuk fixture")
+}
+
+// Test validasi envelope menggunakan credential valid; pengujian autentikasi
+// memakai New/NewAdmin langsung agar tidak menyisipkan credential secara implisit.
+func authorizedTestHandler(database fakeDatabase) http.Handler {
+	admin, err := NewAdmin(database, testAuthToken)
+	if err != nil {
+		panic(err)
+	}
+	syncHandler := New(database)
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		request.Header.Set("Authorization", "Bearer "+testAuthToken)
+		if request.URL.Path == "/v1/sync/bootstrap" {
+			admin.ServeHTTP(writer, request)
+		} else {
+			syncHandler.ServeHTTP(writer, request)
+		}
+	})
+}
+
 func (database fakeDatabase) Pull(
 	_ context.Context,
 	after int64,
@@ -71,7 +108,7 @@ func TestHealth(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/health", nil)
 	response := httptest.NewRecorder()
-	New(fakeDatabase{schemaVersion: storage.SchemaVersion}).ServeHTTP(response, request)
+	authorizedTestHandler(fakeDatabase{schemaVersion: storage.SchemaVersion}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -103,7 +140,7 @@ func TestHealthWhenDatabaseUnavailable(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/health", nil)
 	response := httptest.NewRecorder()
-	New(fakeDatabase{err: errors.New("database closed")}).ServeHTTP(
+	authorizedTestHandler(fakeDatabase{err: errors.New("database closed")}).ServeHTTP(
 		response,
 		request,
 	)
@@ -122,7 +159,7 @@ func TestHealthRejectsPost(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/health", nil)
 	response := httptest.NewRecorder()
-	New(fakeDatabase{schemaVersion: 1}).ServeHTTP(response, request)
+	authorizedTestHandler(fakeDatabase{schemaVersion: 1}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf(
@@ -175,7 +212,7 @@ func TestPushPassesValidatedBatchToStorage(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
 	response := httptest.NewRecorder()
 
-	New(database).ServeHTTP(response, request)
+	authorizedTestHandler(database).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
@@ -255,7 +292,7 @@ func TestPushRejectsInvalidEnvelope(t *testing.T) {
 			)
 			request.Header.Set("Content-Type", test.contentType)
 			response := httptest.NewRecorder()
-			New(fakeDatabase{}).ServeHTTP(response, request)
+			authorizedTestHandler(fakeDatabase{}).ServeHTTP(response, request)
 
 			if response.Code != test.wantStatus {
 				t.Errorf(
@@ -293,7 +330,7 @@ func TestBootstrapReturnsDurableResult(t *testing.T) {
 		ServerSequences: []int64{},
 	}}
 
-	New(database).ServeHTTP(response, request)
+	authorizedTestHandler(database).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
@@ -325,7 +362,7 @@ func TestBootstrapRejectsNonEmptyHub(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 
-	New(fakeDatabase{bootstrapErr: storage.ErrHubNotEmpty}).ServeHTTP(
+	authorizedTestHandler(fakeDatabase{bootstrapErr: storage.ErrHubNotEmpty}).ServeHTTP(
 		response,
 		request,
 	)
@@ -367,7 +404,7 @@ func TestPullReturnsPage(t *testing.T) {
 	)
 	response := httptest.NewRecorder()
 
-	New(database).ServeHTTP(response, request)
+	authorizedTestHandler(database).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
@@ -398,7 +435,7 @@ func TestPullUsesDefaultLimit(t *testing.T) {
 	called := false
 	request := httptest.NewRequest(http.MethodGet, "/v1/sync/pull?after=0", nil)
 	response := httptest.NewRecorder()
-	New(fakeDatabase{
+	authorizedTestHandler(fakeDatabase{
 		pullPage: storage.PullPage{Changes: []storage.PullChange{}},
 		onPull: func(after int64, limit int) {
 			called = true
@@ -435,7 +472,7 @@ func TestPullRejectsInvalidQuery(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, target, nil)
 			response := httptest.NewRecorder()
 
-			New(fakeDatabase{}).ServeHTTP(response, request)
+			authorizedTestHandler(fakeDatabase{}).ServeHTTP(response, request)
 
 			if response.Code != http.StatusBadRequest {
 				t.Errorf(

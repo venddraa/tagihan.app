@@ -58,6 +58,7 @@ final class SyncBootstrapClient {
       _serviceBaseUri.resolve('/v1/sync/bootstrap'),
       prepared.requestBody,
     );
+    checkSyncAuthorization(response);
     if (response.statusCode == HttpStatus.conflict) {
       throw const SyncBootstrapRejectedException(
         'Sync hub sudah berisi data dan tidak dapat menerima bootstrap.',

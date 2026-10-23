@@ -64,6 +64,7 @@ final class SyncPushClient {
       _serviceBaseUri.resolve('/v1/sync/push'),
       requestBody,
     );
+    checkSyncAuthorization(response);
     if (response.statusCode != HttpStatus.ok) {
       throw SyncUnavailableException(
         'Sync service merespons HTTP ${response.statusCode}.',
