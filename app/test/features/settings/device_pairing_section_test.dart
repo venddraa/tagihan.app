@@ -27,9 +27,12 @@ void main() {
       );
       await _showInvitation(tester, database, client);
       expect(find.text('Salin undangan'), findsOneWidget);
+      await _openQr(tester);
+      expect(find.byKey(const ValueKey('pairing-qr-image')), findsOneWidget);
       final initialRequests = requests;
       await tester.pump(const Duration(seconds: 3));
       expect(find.text('Salin undangan'), findsNothing);
+      expect(find.byKey(const ValueKey('pairing-qr-image')), findsNothing);
       expect(
         find.byKey(const ValueKey('pairing-invitation-code')),
         findsNothing,
@@ -67,11 +70,14 @@ void main() {
         onCall: () => requests++,
       );
       await _showInvitation(tester, database, client);
+      await _openQr(tester);
+      expect(find.byKey(const ValueKey('pairing-qr-image')), findsOneWidget);
       final initialRequests = requests;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(find.text('Salin undangan'), findsNothing);
+      expect(find.byKey(const ValueKey('pairing-qr-image')), findsNothing);
       expect(find.textContaining('Undangan disembunyikan'), findsOneWidget);
       expect(requests, initialRequests);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -184,6 +190,8 @@ void main() {
       () => find.text('Teks undangan').evaluate().isNotEmpty,
     );
     expect(active, isTrue);
+    await _openQr(tester);
+    expect(find.byKey(const ValueKey('pairing-qr-image')), findsOneWidget);
     final cancel = find.text('Batalkan undangan');
     await tester.ensureVisible(cancel);
     await tester.pumpAndSettle();
@@ -193,6 +201,7 @@ void main() {
       () => find.text('Teks undangan').evaluate().isEmpty,
     );
     expect(active, isFalse);
+    expect(find.byKey(const ValueKey('pairing-qr-image')), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -436,4 +445,11 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
     if (condition()) return;
   }
   fail('Kondisi pairing tidak tercapai setelah 100 pump.');
+}
+
+Future<void> _openQr(WidgetTester tester) async {
+  final tile = find.text('QR undangan');
+  await tester.ensureVisible(tile);
+  await tester.tap(tile);
+  await tester.pumpAndSettle();
 }

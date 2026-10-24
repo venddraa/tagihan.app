@@ -294,8 +294,12 @@ juga dibersihkan saat aplikasi tidak aktif; sesi durable tetap ada di keyring.
 Ini tidak mencabut undangan di hub atau membersihkan clipboard yang sudah disalin.
 Tidak ada polling atau koneksi otomatis pada resume.
 
-Generator/scanner QR belum dipasang. Pilihan library, batas tahap ini, dan
-perintah persiapan cache ada di [persiapan QR](pairing-qr.md).
+Generator QR Fedora memakai `qr_flutter` 4.1.0, dengan payload undangan yang sama,
+warna hitam-putih, dan quiet zone empat modul. Tidak ada koneksi jaringan atau
+credential baru saat QR dibuka. QR mengikuti expiry dan lifecycle undangan.
+Scanner iOS dan adapter Keychain belum dipasang; generator ini belum membuat
+pairing native iPhone siap. Detail dan batas pengujian ada di
+[QR undangan](pairing-qr.md).
 
 OpenAPI dan contoh Postman diperbarui bersama endpoint yang benar-benar sudah
 diimplementasikan. Service harus memberi body size limit, timeout, dan rate limit

@@ -29,6 +29,11 @@ dependency baru. Keyring login Fedora harus terbuka dan `secret-tool` tersedia.
    **Hubungkan perangkat** dan **Salin undangan**. Cocokkan request ID setelah
    client mengirim permintaan.
 
+   Bagian **QR undangan** menampilkan representasi lokal dari teks yang sama.
+   QR mengikuti expiry dan hilang ketika aplikasi tidak aktif. Pemindai kamera
+   pada aplikasi penerima belum tersedia; untuk review dua replica saat ini
+   tetap gunakan **Salin undangan** dan alur tempel teks berikut.
+
 4. Jalankan replica client pada terminal ketiga, dengan database **terpisah**:
 
    ```bash

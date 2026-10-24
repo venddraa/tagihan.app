@@ -43,7 +43,8 @@ Tidak perlu memasang Android SDK untuk target ini.
 1. Install Xcode lewat App Store. Buka Xcode dan selesaikan instalasi komponen
    serta persetujuan lisensi. Di **Xcode → Settings → Components**, pastikan
    runtime iOS Simulator tersedia (nama menu dapat berbeda menurut versi Xcode).
-2. Siapkan Flutter stable 3.47.7 agar sesuai SDK project saat ini. Jalankan
+2. Siapkan Flutter stable 3.47.8 / Dart 3.13.7 agar sesuai SDK yang terakhir
+   diverifikasi di Fedora. Ini tidak berarti build iOS sudah diuji. Jalankan
    `flutter doctor -v` di Mac dan selesaikan temuan iOS toolchain sesuai
    [panduan resmi Flutter](https://docs.flutter.dev/platform-integration/ios/setup).
    Siapkan CocoaPods jika diminta toolchain/dependency; jangan menjalankan langkah

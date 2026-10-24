@@ -6,6 +6,7 @@ import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/pairing_admin_client.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
+import 'package:tagihan_vendra/features/settings/pairing_invitation_qr.dart';
 
 class DevicePairingSection extends StatefulWidget {
   const DevicePairingSection({super.key, required this.database, this.client});
@@ -266,6 +267,14 @@ class _DevicePairingSectionState extends State<DevicePairingSection>
               'Teks ini bersifat rahasia sementara. Undangan baru menggantikan undangan sebelumnya.',
             ),
             ExpansionTile(
+              key: ValueKey('pairing-qr-${invitation.id}'),
+              title: const Text('QR undangan'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 12),
+              children: [PairingInvitationQr(invitation: invitation)],
+            ),
+            ExpansionTile(
+              key: ValueKey('pairing-text-${invitation.id}'),
               title: const Text('Teks undangan'),
               tilePadding: EdgeInsets.zero,
               children: [
