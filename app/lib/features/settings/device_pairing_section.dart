@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
@@ -13,13 +15,94 @@ class DevicePairingSection extends StatefulWidget {
   State<DevicePairingSection> createState() => _DevicePairingSectionState();
 }
 
-class _DevicePairingSectionState extends State<DevicePairingSection> {
+class _DevicePairingSectionState extends State<DevicePairingSection>
+    with WidgetsBindingObserver {
   late final PairingAdminClient _client = widget.client ?? PairingAdminClient();
   PairingOverview? _overview;
   PairingInvitation? _invitation;
   String? _localDeviceId;
   String? _error;
+  String? _invitationNotice;
+  Timer? _invitationTimer;
+  bool _foreground = true;
+  int _visibilityEpoch = 0;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) return;
+    _visibilityEpoch++;
+    if (_invitation == null) return;
+    setState(
+      () => _clearInvitation(
+        notice: 'Undangan disembunyikan karena aplikasi tidak aktif. Buat undangan baru jika diperlukan.',
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _invitationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _clearInvitation({String? notice}) {
+    _invitationTimer?.cancel();
+    _invitationTimer = null;
+    _invitation = null;
+    _invitationNotice = notice;
+  }
+
+  void _revealInvitation(PairingInvitation invitation, int epoch) {
+    _clearInvitation();
+    if (!_foreground || epoch != _visibilityEpoch) {
+      _invitationNotice = 'Undangan tidak ditampilkan karena aplikasi sempat tidak aktif. Buat undangan baru jika diperlukan.';
+      return;
+    }
+    final remaining = invitation.expiresAt.difference(DateTime.now().toUtc());
+    if (remaining <= Duration.zero) {
+      _invitationNotice = 'Undangan sudah kedaluwarsa menurut jam Fedora. Periksa jam perangkat atau buat undangan baru.';
+      return;
+    }
+    _invitation = invitation;
+    // Maksimal lima menit di layar, sekalipun jam lokal berubah. Ini hanya
+    // menghapus tampilan; validitas dan pembatalan tetap ditentukan oleh hub.
+    final duration = remaining < const Duration(minutes: 5)
+        ? remaining
+        : const Duration(minutes: 5);
+    _invitationTimer = Timer(duration, () {
+      if (!mounted) return;
+      setState(
+        () => _clearInvitation(
+          notice: 'Waktu tampilan undangan berakhir. Buat undangan baru jika diperlukan.',
+        ),
+      );
+    });
+  }
+
+  Future<void> _copyInvitation() async {
+    final invitation = _invitation;
+    if (_busy || invitation == null || !_foreground) return;
+    if (!DateTime.now().toUtc().isBefore(invitation.expiresAt)) {
+      setState(
+        () => _clearInvitation(
+          notice: 'Undangan sudah kedaluwarsa. Buat undangan baru.',
+        ),
+      );
+      return;
+    }
+    await _run(() => Clipboard.setData(ClipboardData(text: invitation.code)));
+  }
 
   Future<void> _load() async {
     final overview = await _client.refresh();
@@ -30,7 +113,7 @@ class _DevicePairingSectionState extends State<DevicePairingSection> {
       _localDeviceId = local.deviceId.value;
       if (_invitation != null &&
           overview.activeInvitationId != _invitation!.id) {
-        _invitation = null;
+        _clearInvitation();
       }
     });
   }
@@ -90,9 +173,10 @@ class _DevicePairingSectionState extends State<DevicePairingSection> {
       }
     }
     if (!mounted) return;
+    final epoch = _visibilityEpoch;
     await _run(() async {
       final invitation = await _client.createInvitation();
-      if (mounted) setState(() => _invitation = invitation);
+      if (mounted) setState(() => _revealInvitation(invitation, epoch));
       await _load();
     });
   }
@@ -196,8 +280,7 @@ class _DevicePairingSectionState extends State<DevicePairingSection> {
               spacing: 8,
               children: [
                 TextButton.icon(
-                  onPressed: () =>
-                      Clipboard.setData(ClipboardData(text: invitation.code)),
+                  onPressed: _busy ? null : _copyInvitation,
                   icon: const Icon(Icons.copy),
                   label: const Text('Salin undangan'),
                 ),
@@ -206,7 +289,7 @@ class _DevicePairingSectionState extends State<DevicePairingSection> {
                       ? null
                       : () => _run(() async {
                           await _client.cancel(invitation.id);
-                          if (mounted) setState(() => _invitation = null);
+                          if (mounted) setState(_clearInvitation);
                           await _load();
                         }),
                   child: const Text('Batalkan undangan'),
@@ -214,6 +297,14 @@ class _DevicePairingSectionState extends State<DevicePairingSection> {
               ],
             ),
           ],
+          if (_invitationNotice != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _invitationNotice!,
+                key: const ValueKey('pairing-invitation-notice'),
+              ),
+            ),
           for (final entry in overview.requests) ...[
             const SizedBox(height: 16),
             const Divider(),

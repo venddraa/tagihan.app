@@ -16,9 +16,13 @@ import 'pairing_admin_client_test.dart' show invitationFixture;
 final class MemoryPairingCredentials implements SyncCredentialStore {
   final values = <String, String>{};
   bool failWrite = false;
+  int reads = 0;
   @override
-  Future<String?> read(String service, String deviceId) async =>
-      values['$service|$deviceId'];
+  Future<String?> read(String service, String deviceId) async {
+    reads++;
+    return values['$service|$deviceId'];
+  }
+
   @override
   Future<void> write(String service, String deviceId, String credential) async {
     if (failWrite) throw const SyncAuthorizationException('Keyring terkunci.');

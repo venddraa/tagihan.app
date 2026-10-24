@@ -36,7 +36,37 @@ void main() {
         find.byKey(const ValueKey('pairing-invitation-input')),
         fixture.invitation.code,
       );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('submit-pairing-request')),
+            )
+            .onPressed,
+        isNull,
+      );
+      final review = find.byKey(const ValueKey('review-pairing-invitation'));
+      await tester.ensureVisible(review);
+      await tester.tap(review);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Alamat hub: ${fixture.invitation.endpoint}'),
+        findsOneWidget,
+      );
+      expect(fixture.calls, isEmpty);
+      expect(fixture.credentials.values, isEmpty);
       final begin = find.text('Kirim permintaan pairing');
+      expect(fixture.credentials.reads, 0);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('pairing-invitation-preview')),
+          matching: find.textContaining(fixture.invitation.token),
+        ),
+        findsNothing,
+      );
       await tester.ensureVisible(begin);
       await tester.tap(begin);
       await _until(
@@ -66,7 +96,91 @@ void main() {
       await tester.pump();
     });
   }
+
+  testWidgets(
+    'undangan invalid atau diedit harus ditinjau tanpa jaringan/keyring',
+    (tester) async {
+      final fixture = ReceiverFixture();
+      addTearDown(fixture.database.close);
+      await _mount(tester, fixture);
+      final input = find.byKey(const ValueKey('pairing-invitation-input'));
+      final review = find.byKey(const ValueKey('review-pairing-invitation'));
+      final submit = find.byKey(const ValueKey('submit-pairing-request'));
+      await tester.enterText(input, 'bukan-undangan');
+      await tester.ensureVisible(review);
+      await tester.tap(review);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsNothing,
+      );
+      expect(find.textContaining('Teks undangan tidak valid.'), findsOneWidget);
+      expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+      await tester.enterText(input, fixture.invitation.code);
+      await tester.ensureVisible(review);
+      await tester.tap(review);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+      await tester.enterText(input, '${fixture.invitation.code}x');
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsNothing,
+      );
+      expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+      expect(fixture.calls, isEmpty);
+      expect(fixture.credentials.values, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'background membersihkan input rahasia dan tidak mengirim saat resume',
+    (tester) async {
+      final fixture = ReceiverFixture();
+      addTearDown(fixture.database.close);
+      await _mount(tester, fixture);
+      final input = find.byKey(const ValueKey('pairing-invitation-input'));
+      await tester.enterText(input, fixture.invitation.code);
+      final review = find.byKey(const ValueKey('review-pairing-invitation'));
+      await tester.ensureVisible(review);
+      await tester.tap(review);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsOneWidget,
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(tester.widget<TextField>(input).controller!.text, isEmpty);
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsNothing,
+      );
+      expect(fixture.calls, isEmpty);
+      expect(fixture.credentials.values, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
 }
+
+Future<void> _mount(WidgetTester tester, ReceiverFixture fixture) =>
+    tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PairingReceiverSection(
+              receiver: fixture.receiver,
+              syncing: false,
+              onBusyChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
 
 Future<void> _until(WidgetTester tester, bool Function() ready) async {
   for (var i = 0; i < 100; i++) {

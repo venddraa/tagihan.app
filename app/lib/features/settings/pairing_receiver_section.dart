@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/core/presentation_formatters.dart';
+import 'package:tagihan_vendra/data/sync/pairing_admin_client.dart';
 import 'package:tagihan_vendra/data/sync/pairing_receiver.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
 
@@ -17,15 +19,64 @@ class PairingReceiverSection extends StatefulWidget {
   State<PairingReceiverSection> createState() => _PairingReceiverSectionState();
 }
 
-class _PairingReceiverSectionState extends State<PairingReceiverSection> {
+class _PairingReceiverSectionState extends State<PairingReceiverSection>
+    with WidgetsBindingObserver {
   final _name = TextEditingController(text: 'Perangkat pribadi');
   final _code = TextEditingController();
   PairingProfile? _profile;
+  PairingInvitation? _preview;
+  String? _reviewedCode;
   String? _message;
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _code.addListener(_invalidatePreview);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _invalidatePreview() {
+    if (_preview == null || _code.text.trim() == _reviewedCode) return;
+    setState(() {
+      _preview = null;
+      _reviewedCode = null;
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    _code.clear();
+    if (_preview != null) {
+      setState(() {
+        _preview = null;
+        _reviewedCode = null;
+      });
+    }
+  }
+
+  void _reviewInvitation() {
+    if (_busy || widget.syncing) return;
+    setState(() {
+      _message = null;
+      _preview = null;
+      _reviewedCode = null;
+      try {
+        _preview = PairingInvitation.fromCode(_code.text);
+        _reviewedCode = _code.text.trim();
+      } on FormatException {
+        _message =
+            'Teks undangan tidak valid. Salin ulang undangan dari Fedora.';
+      }
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _code.removeListener(_invalidatePreview);
     _name.dispose();
     _code.dispose();
     super.dispose();
@@ -58,18 +109,21 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection> {
     }
   }
 
-  Future<void> _begin() => _run(() async {
-    // Kosongkan input rahasia setelah durably disimpan, termasuk jika timeout.
-    try {
-      _profile = await widget.receiver.begin(_code.text, _name.text);
-    } finally {
-      final saved = await widget.receiver.readProfile();
-      if (mounted && saved != null) {
-        _profile = saved;
-        _code.clear();
+  Future<void> _begin() async {
+    if (_preview == null || _reviewedCode != _code.text.trim()) return;
+    await _run(() async {
+      // Kosongkan input rahasia setelah durably disimpan, termasuk jika timeout.
+      try {
+        _profile = await widget.receiver.begin(_code.text, _name.text);
+      } finally {
+        final saved = await widget.receiver.readProfile();
+        if (mounted && saved != null) {
+          _profile = saved;
+          _code.clear();
+        }
       }
-    }
-  });
+    });
+  }
 
   Future<void> _refresh() => _run(() async {
     _profile = await widget.receiver.readProfile();
@@ -129,7 +183,7 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tempel undangan dari Fedora, lalu cocokkan request ID pada kedua perangkat sebelum Fedora memberi izin. Status diperiksa saat kamu menekan tombol.',
+            'Tempel dan tinjau undangan dari Fedora sebelum mengirim permintaan. Setelah itu cocokkan request ID pada kedua perangkat sebelum Fedora memberi izin.',
           ),
           const SizedBox(height: 16),
           if (profile == null) ...[
@@ -155,8 +209,19 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection> {
               ),
             ),
             const SizedBox(height: 16),
+            OutlinedButton(
+              key: const ValueKey('review-pairing-invitation'),
+              onPressed: disabled ? null : _reviewInvitation,
+              child: const Text('Tinjau undangan'),
+            ),
+            if (_preview case final invitation?) ...[
+              const SizedBox(height: 16),
+              _InvitationPreview(invitation: invitation),
+            ],
+            const SizedBox(height: 12),
             FilledButton(
-              onPressed: disabled ? null : _begin,
+              key: const ValueKey('submit-pairing-request'),
+              onPressed: disabled || _preview == null ? null : _begin,
               child: const Text('Kirim permintaan pairing'),
             ),
           ] else ...[
@@ -201,6 +266,46 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _InvitationPreview extends StatelessWidget {
+  const _InvitationPreview({required this.invitation});
+  final PairingInvitation invitation;
+
+  @override
+  Widget build(BuildContext context) {
+    final fingerprint = invitation.fingerprint;
+    final grouped = [
+      for (var i = 0; i < fingerprint.length; i += 4)
+        fingerprint.substring(i, i + 4),
+    ].join(' ');
+    final expired = !DateTime.now().toUtc().isBefore(invitation.expiresAt);
+    return Column(
+      key: const ValueKey('pairing-invitation-preview'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Tujuan pairing', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SelectableText('Alamat hub: ${invitation.endpoint}'),
+        const SizedBox(height: 8),
+        SelectableText('Hub ID: ${invitation.hubId}'),
+        const SizedBox(height: 8),
+        const Text('Fingerprint sertifikat (SHA-256)'),
+        SelectableText(
+          grouped,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        Text('Berlaku sampai ${formatDateTime(invitation.expiresAt)}.'),
+        const SizedBox(height: 8),
+        Text(
+          expired
+              ? 'Menurut jam perangkat, undangan sudah kedaluwarsa. Periksa jam perangkat atau minta undangan baru. Hub tetap memeriksa masa berlaku.'
+              : 'Pastikan undangan berasal langsung dari Fedora milikmu. Tinjauan ini belum menghubungi hub; identitas HTTPS diperiksa saat permintaan dikirim.',
+        ),
+      ],
     );
   }
 }

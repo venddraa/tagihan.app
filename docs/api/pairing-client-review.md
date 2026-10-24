@@ -42,9 +42,12 @@ dependency baru. Keyring login Fedora harus terbuka dan `secret-tool` tersedia.
    Jangan jalankan role client pada database utama yang sudah pernah sync.
 
 5. Pada app client, buka **Pengaturan → Hubungkan ke Fedora**. Isi nama misalnya
-   `Client review Fedora`, tempel teks undangan, lalu klik **Kirim permintaan
-   pairing**. Status menjadi **Menunggu persetujuan Fedora**. Permintaan maupun
-   credential sudah tersimpan sebelum jaringan dihubungi.
+   `Client review Fedora`, tempel teks undangan, lalu klik **Tinjau undangan**.
+   Periksa alamat hub, Hub ID, serta fingerprint yang berasal dari Fedora
+   milikmu. Tinjauan ini tidak membaca keyring atau menghubungi jaringan.
+   Klik **Kirim permintaan pairing**: status menjadi **Menunggu persetujuan
+   Fedora**. Permintaan dan credential sudah tersimpan sebelum jaringan dihubungi.
+   Jika teks diubah, undangan harus ditinjau kembali.
 
 6. Kembali ke app utama, perbarui daftar, cocokkan nama serta **request ID** dengan
    client, klik **Izinkan**, dan konfirmasi. Pada client klik **Periksa sesi dan
@@ -67,6 +70,19 @@ pada client saat hub dapat dihubungi, kemudian buat undangan baru di app utama.
 Jika timeout, cukup klik **Periksa sesi dan status**, tanpa membuat identitas baru.
 Jika approval sudah terjadi sebelum restart Go, pemeriksaan identitas akan
 memulihkan pairing dari registry durable.
+
+Undangan yang masih ditampilkan di Fedora otomatis disembunyikan saat mencapai
+batas waktu tampilan (maksimal lima menit) atau aplikasi tidak aktif. Input
+undangan yang belum dikirim pada client juga dibersihkan saat aplikasi tidak
+aktif. Kembali ke aplikasi tidak mengirim request atau memuat token otomatis.
+Jika perlu, buat undangan baru dari Fedora dan tempel ulang pada client.
+
+Menyembunyikan undangan tidak membatalkannya di hub dan tidak menghapus clipboard
+yang sudah disalin. Client yang sudah mengirim request tetap dapat memeriksa
+status dari sesi yang tersimpan di keyring. Pembatalan eksplisit tetap memakai
+tombol **Batalkan undangan** / **Batalkan sesi pairing** saat tersedia.
+Waktu kedaluwarsa pada preview mengikuti jam perangkat sebagai informasi;
+hub tetap menentukan validitas sebenarnya, termasuk jika jam perangkat berbeda.
 
 Pemeriksaan otomatis sebelum commit:
 

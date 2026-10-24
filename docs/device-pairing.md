@@ -284,6 +284,19 @@ Keychain serta uji native tetap masuk 18D. Tidak ada fallback plaintext.
 
 Panduan dua replica Fedora: [review penerima undangan](api/pairing-client-review.md).
 
+### Persiapan 18D — tinjauan dan waktu tampil undangan
+
+Client meninjau identitas undangan secara offline sebelum mengirim request.
+Perubahan input membatalkan tinjauan. Undangan yang terlihat di Fedora dibatasi
+maksimal lima menit dan disembunyikan saat aplikasi tidak aktif, termasuk jika
+response create baru tiba setelah perpindahan lifecycle. Input undangan client
+juga dibersihkan saat aplikasi tidak aktif; sesi durable tetap ada di keyring.
+Ini tidak mencabut undangan di hub atau membersihkan clipboard yang sudah disalin.
+Tidak ada polling atau koneksi otomatis pada resume.
+
+Generator/scanner QR belum dipasang. Pilihan library, batas tahap ini, dan
+perintah persiapan cache ada di [persiapan QR](pairing-qr.md).
+
 OpenAPI dan contoh Postman diperbarui bersama endpoint yang benar-benar sudah
 diimplementasikan. Service harus memberi body size limit, timeout, dan rate limit
 pada pairing; batas request diatur per alamat sumber dan secara global, bukan
