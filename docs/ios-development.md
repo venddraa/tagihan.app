@@ -3,6 +3,10 @@
 Target aplikasi tetap Flutter iOS. Development shared code dilakukan di Fedora;
 build dan pengujian native iOS memerlukan Mac dengan Xcode.
 
+Adapter credential Keychain dan deskripsi izin Local Network sudah disiapkan.
+Pemilihan platform, kebijakan device-only, batas mock Fedora, dan checklist
+pengujian native dijelaskan di [adapter Keychain](ios-keychain.md).
+
 ## Status Milestone 10
 
 - Target `app/ios` sudah tersedia; display name `Tagihan Vendra`.

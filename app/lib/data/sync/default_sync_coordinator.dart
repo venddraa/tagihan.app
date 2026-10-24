@@ -4,7 +4,7 @@ import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/sync/local_sync_access.dart';
 import 'package:tagihan_vendra/data/sync/pairing_receiver.dart';
 import 'package:tagihan_vendra/data/sync/paired_sync_access.dart';
-import 'package:tagihan_vendra/data/sync/sync_credential_store.dart';
+import 'package:tagihan_vendra/data/sync/platform_credential_store.dart';
 import 'package:tagihan_vendra/data/sync/sync_bootstrap_client.dart';
 import 'package:tagihan_vendra/data/sync/sync_coordinator.dart';
 import 'package:tagihan_vendra/data/sync/sync_pull_client.dart';
@@ -24,7 +24,7 @@ SyncCoordinator createDefaultSyncCoordinator(AppDatabase database) {
   if (role != 'hub' && role != 'client') {
     throw ArgumentError('TAGIHAN_SYNC_ROLE harus hub atau client.');
   }
-  final credentials = LinuxKeyringCredentialStore();
+  final credentials = createDefaultSyncCredentialStore();
   final receiver = PairingReceiver(
     database: database,
     credentials: credentials,

@@ -1,8 +1,9 @@
 # QR undangan pairing
 
 QR undangan Fedora sudah diimplementasikan dengan `qr_flutter` 4.1.0 dan `qr`
-3.0.2 pada lockfile. Scanner kamera dan adapter Keychain belum dibuat. Pengujian
-widget dan raster berjalan di Fedora; native iPhone belum diuji.
+3.0.2 pada lockfile. Scanner kamera belum dibuat. Adapter Keychain disiapkan dan
+diuji dengan mock; widget/raster berjalan di Fedora, sementara native iPhone
+belum diuji. Lihat [adapter Keychain](ios-keychain.md).
 
 ## Generator lokal
 

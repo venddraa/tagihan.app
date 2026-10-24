@@ -216,9 +216,12 @@ credential diam-diam ketika ID perangkat bertabrakan.
 ## Penyimpanan client dan dependency
 
 Pada 18B, Fedora menggunakan Secret Service lewat `secret-tool` yang sudah ada,
-sehingga tidak memerlukan plugin atau development header baru. Keychain pada iOS
-direncanakan lewat `flutter_secure_storage`. Konfigurasi iOS harus device-only serta
-tidak memakai sinkronisasi iCloud. Tidak perlu biometric prompt pada setiap sync.
+sehingga pada tahap itu tidak memerlukan plugin atau development header baru.
+Dependency `flutter_secure_storage` 11.2.0 sudah ditambahkan untuk iOS; build Linux
+kini juga memerlukan `libsecret-devel` untuk plugin yang terdaftar. Credential
+Fedora tetap diakses melalui adapter Secret Service yang sudah ada.
+Adapter iOS memakai Keychain device-only ketika unlocked, dengan sinkronisasi
+iCloud dinonaktifkan dan tanpa biometric prompt pada setiap sync.
 Jika secure storage terkunci atau gagal, sync dihentikan dengan pesan yang jelas;
 credential tidak dialihkan ke SQLite biasa. CRUD lokal tetap dapat digunakan.
 
@@ -226,12 +229,11 @@ credential tidak dialihkan ke SQLite biasa. CRUD lokal tetap dapat digunakan.
 tidak masuk database finansial, backup/export tagihan, Git, log, atau koleksi
 Postman yang dibagikan. Credential admin Fedora tetap terpisah dari token sync.
 
-Dependency yang diusulkan untuk direview sebelum instalasi:
+Dependency yang sudah dipilih:
 
 - Go: standard library untuk random, hash, TLS, dan HTTP; SQLite yang sudah ada.
-- Flutter: `flutter_secure_storage` untuk token dan `crypto` untuk SHA-256 pin.
-- Generator QR dan scanner kamera dipilih terpisah; alur tempel teks dibuat dulu
-  supaya transport dan persetujuan dapat diuji tanpa menambah plugin kamera.
+- Flutter: `flutter_secure_storage` 11.2.0 untuk Keychain, `crypto` untuk SHA-256 pin,
+  dan `qr_flutter` 4.1.0 untuk generator QR. Scanner kamera belum dipilih.
 
 ## Pembagian implementasi setelah desain disetujui
 
@@ -277,10 +279,9 @@ sudah approved/terikat. Unpair, pindah hub, rotasi credential, dan perubahan
 endpoint belum dibuat pada checkpoint ini.
 
 Role default di Linux adalah `hub`, dan di iOS adalah `client`. Override untuk
-review menggunakan `TAGIHAN_SYNC_ROLE=client`. Pada checkpoint ini secure store
-yang tersedia hanya Fedora Secret Service. iOS gagal dengan pesan penyimpanan
-credential belum disiapkan, sambil tetap dapat menjalankan CRUD lokal; adapter
-Keychain serta uji native tetap masuk 18D. Tidak ada fallback plaintext.
+review menggunakan `TAGIHAN_SYNC_ROLE=client`. Pada 18C.2 secure store yang tersedia
+baru Fedora Secret Service. Tahap 18D menambahkan adapter Keychain iOS; pengujian
+native tetap membutuhkan Mac/Xcode. Tidak ada fallback plaintext.
 
 Panduan dua replica Fedora: [review penerima undangan](api/pairing-client-review.md).
 
@@ -297,9 +298,20 @@ Tidak ada polling atau koneksi otomatis pada resume.
 Generator QR Fedora memakai `qr_flutter` 4.1.0, dengan payload undangan yang sama,
 warna hitam-putih, dan quiet zone empat modul. Tidak ada koneksi jaringan atau
 credential baru saat QR dibuka. QR mengikuti expiry dan lifecycle undangan.
-Scanner iOS dan adapter Keychain belum dipasang; generator ini belum membuat
-pairing native iPhone siap. Detail dan batas pengujian ada di
+Scanner iOS belum dipasang. Adapter Keychain disiapkan dan diuji dengan mock di
+Fedora, sementara pairing native iPhone masih perlu diuji pada perangkat.
+Detail dan batas pengujian ada di
 [QR undangan](pairing-qr.md).
+
+### Adapter Keychain iOS
+
+Coordinator memilih store berdasarkan OS asli. Adapter iOS mengirim opsi
+device-only pada setiap operasi dan membaca kembali hasil write sebelum pairing
+dilanjutkan. Kegagalan storage menghentikan sync tanpa reset profil, cursor,
+binding, atau outbox. Test mencakup error setelah commit dan recovery request/token
+yang sama. Deskripsi Local Network sudah disiapkan di Info.plist. Konfigurasi,
+alasan memakai private access group default, dan checklist native ada di
+[adapter Keychain](ios-keychain.md). Tidak ada klaim build iOS PASS di Fedora.
 
 OpenAPI dan contoh Postman diperbarui bersama endpoint yang benar-benar sudah
 diimplementasikan. Service harus memberi body size limit, timeout, dan rate limit
