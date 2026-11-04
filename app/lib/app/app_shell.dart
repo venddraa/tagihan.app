@@ -24,10 +24,10 @@ class _AppShellState extends State<AppShell> {
   static const _desktopBreakpoint = 860.0;
 
   static const _destinations = [
-    _AppDestination(label: 'Ringkasan'),
-    _AppDestination(label: 'Tagihan'),
-    _AppDestination(label: 'Pembayaran'),
-    _AppDestination(label: 'Pengaturan'),
+    _AppDestination(label: 'Ringkasan', icon: Icons.dashboard_outlined),
+    _AppDestination(label: 'Tagihan', icon: Icons.receipt_long_outlined),
+    _AppDestination(label: 'Pembayaran', icon: Icons.payments_outlined),
+    _AppDestination(label: 'Pengaturan', icon: Icons.tune_outlined),
   ];
 
   int _selectedIndex = 0;
@@ -86,25 +86,44 @@ class _DesktopShell extends StatelessWidget {
             SizedBox(
               key: const ValueKey('desktop-header'),
               width: double.infinity,
-              height: 76,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Positioned(left: 32, child: _Brand()),
-                  Row(
-                    key: const ValueKey('desktop-navigation'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var index = 0; index < destinations.length; index++)
-                        _TopNavigationItem(
-                          key: ValueKey('desktop-destination-$index'),
-                          label: destinations[index].label,
-                          selected: selectedIndex == index,
-                          onTap: () => onDestinationSelected(index),
+              height: 72,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final showLabels = constraints.maxWidth >= 1040;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _Brand(),
+                          ),
                         ),
-                    ],
-                  ),
-                ],
+                        Row(
+                          key: const ValueKey('desktop-navigation'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (
+                              var index = 0;
+                              index < destinations.length;
+                              index++
+                            )
+                              _TopNavigationItem(
+                                key: ValueKey('desktop-destination-$index'),
+                                label: destinations[index].label,
+                                icon: destinations[index].icon,
+                                showLabel: showLabels,
+                                selected: selectedIndex == index,
+                                onTap: () => onDestinationSelected(index),
+                              ),
+                          ],
+                        ),
+                        const Expanded(child: SizedBox()),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
             const Divider(height: 1),
@@ -167,9 +186,36 @@ class _Brand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Tagihan Vendra',
-      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(
+            Icons.receipt_long_outlined,
+            size: 18,
+            color: colors.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Flexible(
+          child: Text(
+            'Tagihan Vendra',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -178,11 +224,15 @@ class _TopNavigationItem extends StatelessWidget {
   const _TopNavigationItem({
     super.key,
     required this.label,
+    required this.icon,
+    required this.showLabel,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
+  final bool showLabel;
   final bool selected;
   final VoidCallback onTap;
 
@@ -191,25 +241,52 @@ class _TopNavigationItem extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Semantics(
+        label: label,
         button: true,
         selected: selected,
-        child: Material(
-          color: selected ? colorScheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: selected
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurfaceVariant,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        excludeSemantics: true,
+        child: Tooltip(
+          message: label,
+          child: Material(
+            color: selected
+                ? colorScheme.surfaceContainerHigh
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 9,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    if (showLabel) ...[
+                      const SizedBox(width: 7),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: selected
+                              ? colorScheme.onSurface
+                              : colorScheme.onSurfaceVariant,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -251,6 +328,7 @@ class _BottomNavigation extends StatelessWidget {
                   child: _BottomNavigationItem(
                     key: ValueKey('compact-destination-$index'),
                     label: destinations[index].label,
+                    icon: destinations[index].icon,
                     selected: selectedIndex == index,
                     onTap: () => onDestinationSelected(index),
                   ),
@@ -267,11 +345,13 @@ class _BottomNavigationItem extends StatelessWidget {
   const _BottomNavigationItem({
     super.key,
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -291,14 +371,22 @@ class _BottomNavigationItem extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                width: selected ? 28 : 0,
+                width: selected ? 30 : 0,
                 height: 3,
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 7),
+              Icon(
+                icon,
+                size: 21,
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 4),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -361,7 +449,8 @@ class _DestinationContent extends StatelessWidget {
 }
 
 class _AppDestination {
-  const _AppDestination({required this.label});
+  const _AppDestination({required this.label, required this.icon});
 
   final String label;
+  final IconData icon;
 }

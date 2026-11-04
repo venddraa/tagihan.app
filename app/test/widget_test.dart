@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tagihan_vendra/app/app_theme.dart';
 import 'package:tagihan_vendra/app/tagihan_vendra_app.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
@@ -27,6 +28,8 @@ void main() {
     expect(find.text('Tagihan Vendra'), findsOneWidget);
     expect(find.byKey(const ValueKey('desktop-navigation')), findsOneWidget);
     expect(find.byKey(const ValueKey('compact-navigation')), findsNothing);
+    expect(find.byIcon(Icons.dashboard_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.payments_outlined), findsOneWidget);
     final headerRect = tester.getRect(
       find.byKey(const ValueKey('desktop-header')),
     );
@@ -36,10 +39,9 @@ void main() {
 
     expect(headerRect.width, 1200);
     expect(navigationRect.center.dx, closeTo(headerRect.center.dx, 0.01));
-    expect(
-      Theme.of(tester.element(find.byType(Scaffold))).brightness,
-      Brightness.dark,
-    );
+    final theme = Theme.of(tester.element(find.byType(Scaffold)));
+    expect(theme.brightness, Brightness.dark);
+    expect(theme.colorScheme.primary, AppTheme.wineAccent);
 
     await tester.tap(find.byKey(const ValueKey('desktop-destination-1')));
     await tester.pumpAndSettle();
@@ -52,12 +54,31 @@ void main() {
     await _disposeApp(tester);
   });
 
+  testWidgets('brand dan navigasi desktop tidak bertumpuk pada breakpoint', (
+    tester,
+  ) async {
+    await _setScreenSize(tester, const Size(860, 700));
+    await tester.pumpWidget(TagihanVendraApp(database: database));
+
+    final brand = tester.getRect(find.text('Tagihan Vendra'));
+    final navigation = tester.getRect(
+      find.byKey(const ValueKey('desktop-navigation')),
+    );
+    expect(brand.right, lessThan(navigation.left));
+    expect(navigation.center.dx, closeTo(430, 0.01));
+    expect(tester.takeException(), isNull);
+
+    await _disposeApp(tester);
+  });
+
   testWidgets('menampilkan navigasi bawah pada layar sempit', (tester) async {
     await _setScreenSize(tester, const Size(390, 844));
     await tester.pumpWidget(TagihanVendraApp(database: database));
 
     expect(find.byKey(const ValueKey('desktop-navigation')), findsNothing);
     expect(find.byKey(const ValueKey('compact-navigation')), findsOneWidget);
+    expect(find.byIcon(Icons.dashboard_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.payments_outlined), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('compact-destination-2')));
     await tester.pumpAndSettle();
@@ -214,6 +235,10 @@ void main() {
         expect(find.text('Terlambat (1)'), findsOneWidget);
         expect(find.text('Mendatang (1)'), findsOneWidget);
         expect(find.text('Rp30.000'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('monthly-commitment-amount')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
 
         await tester.runAsync(() async {

@@ -206,27 +206,40 @@ class _CommitmentSummary extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       key: const ValueKey('monthly-commitment'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(10),
-        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        color: theme.colorScheme.surfaceContainerLow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Komitmen bulanan', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 10),
+          Text(
+            'ESTIMASI KOMITMEN BULANAN',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 12),
           if (overview.monthlyCommitments.isEmpty)
-            Text('Rp0', style: theme.textTheme.headlineMedium)
+            Text(
+              'Rp0',
+              key: const ValueKey('monthly-commitment-amount'),
+              style: theme.textTheme.headlineMedium?.copyWith(fontSize: 36),
+            )
           else
             for (final amount in overview.monthlyCommitments)
-              Text(formatMoney(amount), style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 12),
+              Text(
+                formatMoney(amount),
+                key: const ValueKey('monthly-commitment-amount'),
+                style: theme.textTheme.headlineMedium?.copyWith(fontSize: 36),
+              ),
+          const SizedBox(height: 10),
           Text(
-            'Estimasi rata-rata tagihan berulang aktif, bukan total pembayaran bulan ini. '
-            'Mingguan × 52 ÷ 12, bulanan penuh, tahunan ÷ 12; satu kali tidak dihitung. '
-            'Dibulatkan ke satuan terkecil masing-masing mata uang.',
+            'Rata-rata tagihan berulang aktif per bulan. Tagihan satu kali dan pembayaran historis tidak dihitung.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -330,24 +343,59 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 6),
-            Text(amount),
-          ],
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final placeAmountBeside = constraints.maxWidth >= 380;
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 2),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (placeAmountBeside) ...[
+                      const SizedBox(width: 16),
+                      Text(
+                        amount,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if (!placeAmountBeside) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    amount,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }
