@@ -204,12 +204,12 @@ class _BillListItem extends StatelessWidget {
       title: bill.name,
       amount: formatMoney(bill.amount),
       leading: Container(
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           bill.name.characters.first.toUpperCase(),
@@ -219,25 +219,46 @@ class _BillListItem extends StatelessWidget {
           ),
         ),
       ),
-      subtitle: Text.rich(
-        TextSpan(
-          children: [
-            if (timingLabel != null) ...[
-              TextSpan(
-                text: '$timingLabel · ',
-                style: TextStyle(
-                  color: overdue ? colorScheme.error : colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            TextSpan(
-              text:
-                  '${formatBillingCycle(bill.billingCycle)} · Jatuh tempo ${formatCalendarDate(bill.nextDueDate)}',
+      subtitle: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (timingLabel != null)
+            _TimingLabel(
+              label: timingLabel,
+              color: overdue ? colorScheme.error : colorScheme.primary,
             ),
-          ],
-        ),
-        style: TextStyle(color: colorScheme.onSurfaceVariant),
+          Text(
+            '${formatBillingCycle(bill.billingCycle)} · Jatuh tempo ${formatCalendarDate(bill.nextDueDate)}',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimingLabel extends StatelessWidget {
+  const _TimingLabel({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('bill-timing-label'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(28),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -250,6 +271,7 @@ class _BillDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
       scrollable: true,
       title: Text(bill.name),
@@ -257,8 +279,25 @@ class _BillDetailsDialog extends StatelessWidget {
         width: 440,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _DetailRow(label: 'Nominal', value: formatMoney(bill.amount)),
+            Text(
+              'Nominal',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              formatMoney(bill.amount),
+              key: const ValueKey('bill-detail-amount'),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
             _DetailRow(
               label: 'Siklus',
               value: formatBillingCycle(bill.billingCycle),
@@ -346,7 +385,15 @@ class _MessageState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 38, color: colorScheme.onSurfaceVariant),
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, size: 28, color: colorScheme.primary),
+            ),
             const SizedBox(height: 16),
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 6),

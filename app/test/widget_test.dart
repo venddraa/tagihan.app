@@ -114,10 +114,12 @@ void main() {
     expect(find.byKey(const ValueKey('bill-list')), findsOneWidget);
     expect(find.text('Spotify'), findsOneWidget);
     expect(find.text('Rp59.990'), findsOneWidget);
+    expect(find.byKey(const ValueKey('bill-timing-label')), findsOneWidget);
 
     await tester.tap(find.text('Spotify'));
     await tester.pumpAndSettle();
     expect(find.text('Nominal'), findsOneWidget);
+    expect(find.byKey(const ValueKey('bill-detail-amount')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('edit-bill-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -186,6 +188,7 @@ void main() {
     await tester.tap(find.text('Spotify'));
     await tester.pumpAndSettle();
     expect(find.text('Dibayar pada'), findsOneWidget);
+    expect(find.byKey(const ValueKey('payment-detail-amount')), findsOneWidget);
 
     final updatedBill = await database.findBillById(
       EntityId.fromString('01890f47-3d7a-7c53-bb3c-9d6ec2f1a6b0'),

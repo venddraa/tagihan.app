@@ -157,12 +157,12 @@ class _PaymentListItem extends StatelessWidget {
       title: entry.billName,
       amount: formatMoney(payment.amount),
       leading: Container(
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           Icons.check,
@@ -186,6 +186,7 @@ class _PaymentDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final payment = entry.payment;
+    final theme = Theme.of(context);
     return AlertDialog(
       scrollable: true,
       title: Text(entry.billName),
@@ -193,8 +194,25 @@ class _PaymentDetailsDialog extends StatelessWidget {
         width: 440,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _DetailRow(label: 'Nominal', value: formatMoney(payment.amount)),
+            Text(
+              'Nominal',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              formatMoney(payment.amount),
+              key: const ValueKey('payment-detail-amount'),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
             _DetailRow(
               label: 'Dibayar pada',
               value: formatDateTimeDate(payment.paidAt),
@@ -266,7 +284,15 @@ class _PaymentMessage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 38, color: colorScheme.onSurfaceVariant),
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, size: 28, color: colorScheme.primary),
+            ),
             const SizedBox(height: 16),
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 6),

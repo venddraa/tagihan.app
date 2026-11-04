@@ -27,36 +27,49 @@ class RecordListItem extends StatelessWidget {
             MediaQuery.textScalerOf(context).scale(14) > 18;
         final amountText = Text(
           amount,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
         );
-        return InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 18),
-            child: Row(
-              children: [
-                leading,
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: stacked ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 5),
-                      subtitle,
-                      if (stacked) ...[const SizedBox(height: 8), amountText],
-                    ],
+        return Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            hoverColor: colorScheme.surfaceContainerHigh,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 17),
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: stacked ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        subtitle,
+                        if (stacked) ...[const SizedBox(height: 9), amountText],
+                      ],
+                    ),
                   ),
-                ),
-                if (!stacked) ...[const SizedBox(width: 16), amountText],
-                const SizedBox(width: 10),
-                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-              ],
+                  if (!stacked) ...[const SizedBox(width: 16), amountText],
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
         );
