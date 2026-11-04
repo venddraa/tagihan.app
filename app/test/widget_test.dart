@@ -108,6 +108,8 @@ void main() {
       find.byKey(const ValueKey('bill-amount-field')),
       '59990',
     );
+    await tester.pump();
+    expect(find.text('Terbaca sebagai Rp59.990'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('save-bill-button')));
     await tester.pumpAndSettle();
 
@@ -179,6 +181,7 @@ void main() {
           .text,
       '59990',
     );
+    expect(find.text('Terbaca sebagai Rp59.990'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('save-payment-button')));
     await tester.pumpAndSettle();
 

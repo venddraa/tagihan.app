@@ -134,142 +134,138 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   Widget build(BuildContext context) {
     return AdaptiveFormDialog(
       maxHeight: 700,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(28, 24, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Catat pembayaran',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Tutup',
-                  onPressed: _saving
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            AdaptiveFormHeader(
+              title: 'Catat pembayaran',
+              subtitle:
+                  'Simpan pembayaran sebagai riwayat terpisah dari tagihan.',
+              icon: Icons.payments_outlined,
+              onClose: _saving ? null : () => Navigator.of(context).pop(false),
             ),
-          ),
-          const Divider(height: 1),
-          Flexible(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<Bill>(
-                      key: const ValueKey('payment-bill-field'),
-                      initialValue: _selectedBill,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Tagihan'),
-                      items: [
-                        for (final bill in widget.bills)
-                          DropdownMenuItem(
-                            value: bill,
-                            child: Text(
-                              bill.name,
-                              overflow: TextOverflow.ellipsis,
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const FormSectionLabel('Informasi pembayaran'),
+                      DropdownButtonFormField<Bill>(
+                        key: const ValueKey('payment-bill-field'),
+                        initialValue: _selectedBill,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Tagihan'),
+                        items: [
+                          for (final bill in widget.bills)
+                            DropdownMenuItem(
+                              value: bill,
+                              child: Text(
+                                bill.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (bill) {
+                                if (bill != null) _selectBill(bill);
+                              },
+                      ),
+                      const SizedBox(height: 18),
+                      TextFormField(
+                        key: const ValueKey('payment-amount-field'),
+                        controller: _amountController,
+                        decoration: InputDecoration(
+                          labelText:
+                              'Nominal (${_selectedBill.amount.currency.code})',
+                          prefixText:
+                              _selectedBill.amount.currency == Currency.idr
+                              ? 'Rp '
+                              : null,
+                          helperText: 'Masukkan angka tanpa titik atau koma.',
+                          helperMaxLines: 2,
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Nominal wajib diisi.';
+                          }
+                          return int.tryParse(value) == null
+                              ? 'Nominal tidak valid.'
+                              : null;
+                        },
+                      ),
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _amountController,
+                        builder: (context, value, _) {
+                          final amount = int.tryParse(value.text);
+                          if (amount == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Terbaca sebagai ${formatMoney(Money(minorUnits: amount, currency: _selectedBill.amount.currency))}',
+                              key: const ValueKey('payment-amount-preview'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      const FormSectionLabel('Jadwal'),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _DateField(
+                            label: 'Periode jatuh tempo',
+                            value: formatCalendarDate(_dueDate),
+                            onTap: _saving ? null : _pickDueDate,
                           ),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (bill) {
-                              if (bill != null) _selectBill(bill);
-                            },
-                    ),
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      key: const ValueKey('payment-amount-field'),
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText:
-                            'Nominal (${_selectedBill.amount.currency.code})',
-                        prefixText:
-                            _selectedBill.amount.currency == Currency.idr
-                            ? 'Rp '
-                            : null,
-                        helperText: 'Masukkan angka tanpa titik atau koma.',
-                        helperMaxLines: 2,
+                          _DateField(
+                            label: 'Tanggal pembayaran',
+                            value: formatDateTimeDate(_paidAt),
+                            onTap: _saving ? null : _pickPaidAt,
+                          ),
+                        ],
                       ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Nominal wajib diisi.';
-                        }
-                        return int.tryParse(value) == null
-                            ? 'Nominal tidak valid.'
-                            : null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _DateField(
-                          label: 'Periode jatuh tempo',
-                          value: formatCalendarDate(_dueDate),
-                          onTap: _saving ? null : _pickDueDate,
+                      const SizedBox(height: 24),
+                      const FormSectionLabel('Catatan'),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Catatan (opsional)',
                         ),
-                        _DateField(
-                          label: 'Tanggal pembayaran',
-                          value: formatDateTimeDate(_paidAt),
-                          onTap: _saving ? null : _pickPaidAt,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      controller: _notesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Catatan (opsional)',
+                        minLines: 2,
+                        maxLines: 4,
                       ),
-                      minLines: 2,
-                      maxLines: 4,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text('Batal'),
-                  ),
-                  FilledButton(
-                    key: const ValueKey('save-payment-button'),
-                    onPressed: _saving ? null : _save,
-                    child: Text(_saving ? 'Menyimpan…' : 'Simpan'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: AdaptiveFormActions(
+          saveKey: const ValueKey('save-payment-button'),
+          saving: _saving,
+          onCancel: _saving ? null : () => Navigator.of(context).pop(false),
+          onSave: _saving ? null : _save,
+        ),
       ),
     );
   }
@@ -291,7 +287,7 @@ class _DateField extends StatelessWidget {
     return SizedBox(
       width: 270,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: InputDecorator(
           decoration: InputDecoration(
