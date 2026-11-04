@@ -116,6 +116,8 @@ class _SyncConflictSectionState extends State<SyncConflictSection> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 32),
+            const Divider(height: 1),
+            const SizedBox(height: 24),
             Text(
               'Data berbeda ditemukan',
               style: Theme.of(context).textTheme.titleLarge,
@@ -173,9 +175,9 @@ class _ConflictPanel extends StatelessWidget {
       key: ValueKey('sync-conflict-${group.operationId.value}'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.colorScheme.surfaceContainerLow,
         border: Border.all(color: theme.colorScheme.tertiary),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

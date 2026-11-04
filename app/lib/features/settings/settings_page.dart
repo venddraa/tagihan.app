@@ -97,30 +97,51 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 20),
               _SyncStatusPanel(status: _status),
               const SizedBox(height: 20),
-              FilledButton.icon(
-                key: const ValueKey('sync-now-button'),
-                onPressed:
-                    _pairingBusy || _status.phase == SyncRuntimePhase.syncing
-                    ? null
-                    : _synchronize,
-                icon: _status.phase == SyncRuntimePhase.syncing
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
-                label: Text(
-                  _status.phase == SyncRuntimePhase.syncing
-                      ? 'Menyinkronkan…'
-                      : 'Sinkronkan sekarang',
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: widget.compact ? double.infinity : null,
+                  child: FilledButton.icon(
+                    key: const ValueKey('sync-now-button'),
+                    onPressed:
+                        _pairingBusy ||
+                            _status.phase == SyncRuntimePhase.syncing
+                        ? null
+                        : _synchronize,
+                    icon: _status.phase == SyncRuntimePhase.syncing
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync),
+                    label: Text(
+                      _status.phase == SyncRuntimePhase.syncing
+                          ? 'Menyinkronkan…'
+                          : 'Sinkronkan sekarang',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Tidak ada data finansial yang dikirim ke layanan cloud. Jika hub tidak tersedia, perubahan tetap tersimpan di perangkat ini.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              Row(
+                key: const ValueKey('sync-privacy-note'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tidak ada data finansial yang dikirim ke layanan cloud. Jika hub tidak tersedia, perubahan tetap tersimpan di perangkat ini.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SyncConflictSection(
                 database: widget.database,
@@ -158,31 +179,55 @@ class _SyncStatusPanel extends StatelessWidget {
         key: const ValueKey('sync-status-panel'),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: theme.colorScheme.surfaceContainerLow,
           border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(presentation.icon, color: presentation.color),
+                Container(
+                  key: const ValueKey('sync-status-icon'),
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: presentation.color.withAlpha(24),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    presentation.icon,
+                    size: 21,
+                    color: presentation.color,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    presentation.label,
-                    key: const ValueKey('sync-status-label'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: presentation.color,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        presentation.label,
+                        key: const ValueKey('sync-status-label'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: presentation.color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        status.message,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(status.message),
             if (status.phase == SyncRuntimePhase.syncing) ...[
               const SizedBox(height: 16),
               const LinearProgressIndicator(),
@@ -190,24 +235,54 @@ class _SyncStatusPanel extends StatelessWidget {
             const SizedBox(height: 20),
             const Divider(height: 1),
             const SizedBox(height: 16),
-            _StatusValue(
-              label: 'Perubahan menunggu',
-              value: status.pendingChanges.toString(),
-              valueKey: const ValueKey('sync-pending-count'),
-            ),
-            const SizedBox(height: 12),
-            _StatusValue(
-              label: 'Conflict belum selesai',
-              value: status.conflicts.toString(),
-              valueKey: const ValueKey('sync-conflict-count'),
-            ),
-            const SizedBox(height: 12),
-            _StatusValue(
-              label: 'Sync terakhir sesi ini',
-              value: status.lastSyncAt == null
-                  ? 'Belum ada'
-                  : formatDateTime(status.lastSyncAt!),
-              valueKey: const ValueKey('sync-last-time'),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final values = [
+                  _StatusValue(
+                    label: 'Perubahan menunggu',
+                    value: status.pendingChanges.toString(),
+                    valueKey: const ValueKey('sync-pending-count'),
+                    vertical: constraints.maxWidth >= 560,
+                  ),
+                  _StatusValue(
+                    label: 'Conflict belum selesai',
+                    value: status.conflicts.toString(),
+                    valueKey: const ValueKey('sync-conflict-count'),
+                    vertical: constraints.maxWidth >= 560,
+                  ),
+                  _StatusValue(
+                    label: 'Sync terakhir sesi ini',
+                    value: status.lastSyncAt == null
+                        ? 'Belum ada'
+                        : formatDateTime(status.lastSyncAt!),
+                    valueKey: const ValueKey('sync-last-time'),
+                    vertical: constraints.maxWidth >= 560,
+                  ),
+                ];
+                if (constraints.maxWidth < 560) {
+                  return Column(
+                    children: [
+                      values[0],
+                      const SizedBox(height: 12),
+                      values[1],
+                      const SizedBox(height: 12),
+                      values[2],
+                    ],
+                  );
+                }
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: values[0]),
+                      const VerticalDivider(width: 25),
+                      Expanded(child: values[1]),
+                      const VerticalDivider(width: 25),
+                      Expanded(flex: 2, child: values[2]),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -221,15 +296,39 @@ class _StatusValue extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueKey,
+    this.vertical = false,
   });
 
   final String label;
   final String value;
   final Key valueKey;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (vertical) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            key: valueKey,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

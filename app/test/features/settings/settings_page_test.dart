@@ -61,8 +61,17 @@ void main() {
     expect(_textValue(tester, 'sync-status-label'), 'Siap offline');
     expect(_textValue(tester, 'sync-pending-count'), '1');
     expect(_textValue(tester, 'sync-conflict-count'), '0');
+    expect(find.byKey(const ValueKey('sync-status-icon')), findsOneWidget);
+    expect(find.byKey(const ValueKey('sync-privacy-note')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('sync-now-button'))).width,
+      lessThan(400),
+    );
 
-    await tester.tap(find.byKey(const ValueKey('sync-now-button')));
+    final syncButton = find.byKey(const ValueKey('sync-now-button'));
+    await tester.ensureVisible(syncButton);
+    await tester.pumpAndSettle();
+    await tester.tap(syncButton);
     await _pumpUntilTextValue(tester, 'sync-status-label', 'Tersinkron');
 
     expect(_textValue(tester, 'sync-status-label'), 'Tersinkron');
@@ -91,7 +100,10 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('compact-destination-3')));
     await _pumpUntilFound(tester, find.text('Sinkronisasi perangkat'));
-    await tester.tap(find.byKey(const ValueKey('sync-now-button')));
+    final syncButton = find.byKey(const ValueKey('sync-now-button'));
+    await tester.ensureVisible(syncButton);
+    await tester.pumpAndSettle();
+    await tester.tap(syncButton);
     await _pumpUntilTextValue(
       tester,
       'sync-status-label',
@@ -101,6 +113,7 @@ void main() {
     expect(_textValue(tester, 'sync-status-label'), 'Hub tidak tersedia');
     expect(_textValue(tester, 'sync-pending-count'), '1');
     expect(find.textContaining('Data lokal tetap aman.'), findsOneWidget);
+    expect(tester.getSize(syncButton).width, greaterThan(300));
     expect(tester.takeException(), isNull);
 
     await _disposeApp(tester);

@@ -207,6 +207,8 @@ class _DevicePairingSectionState extends State<DevicePairingSection>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 32),
+        const Divider(height: 1),
+        const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
@@ -224,8 +226,11 @@ class _DevicePairingSectionState extends State<DevicePairingSection>
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Sinkronkan Fedora terlebih dahulu sebelum menghubungkan perangkat baru. Perbarui daftar untuk memeriksa permintaan yang menunggu persetujuanmu.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         if (_busy)
           const Padding(
