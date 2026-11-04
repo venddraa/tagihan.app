@@ -30,9 +30,9 @@ dependency baru. Keyring login Fedora harus terbuka dan `secret-tool` tersedia.
    client mengirim permintaan.
 
    Bagian **QR undangan** menampilkan representasi lokal dari teks yang sama.
-   QR mengikuti expiry dan hilang ketika aplikasi tidak aktif. Pemindai kamera
-   pada aplikasi penerima belum tersedia; untuk review dua replica saat ini
-   tetap gunakan **Salin undangan** dan alur tempel teks berikut.
+   QR mengikuti expiry dan hilang ketika aplikasi tidak aktif. Scanner hanya
+   ditampilkan pada iPhone; review dua replica Fedora tetap memakai **Salin
+   undangan** dan alur tempel teks berikut.
 
 4. Jalankan replica client pada terminal ketiga, dengan database **terpisah**:
 

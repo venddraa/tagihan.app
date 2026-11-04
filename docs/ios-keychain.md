@@ -57,7 +57,8 @@ Fedora yang diizinkan. Deskripsi diperlukan juga untuk koneksi langsung ke
 alamat lokal. iOS mengendalikan prompt dan izin jaringan lokal.
 [Dokumentasi Apple](https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription).
 
-Tidak ada discovery Bonjour, exception HTTP global, atau permission kamera baru.
+Tidak ada discovery Bonjour atau exception HTTP global. Permission kamera hanya
+dipakai halaman pemindai QR dan dijelaskan oleh `NSCameraUsageDescription`.
 Sync tetap memakai HTTPS dengan pin sertifikat, dimulai saat user meminta pairing
 atau sync. Jika Local Network ditolak, ubah izin app di Settings iOS lalu periksa
 sesi kembali; penolakan tidak menghapus data lokal.
@@ -69,7 +70,7 @@ Ini memeriksa opsi plugin, isolasi key, error, read-back, serta integrasi pairin
 dan coordinator dengan SQLite. Ini bukan pengujian Apple Keychain, provisioning,
 prompt Local Network, atau TLS native iPhone.
 
-Pemeriksaan pada Flutter 3.47.8 / Dart 3.13.7: analyzer PASS, 195 test Flutter PASS
+Pemeriksaan pada Flutter 3.47.8 / Dart 3.13.7: analyzer PASS, 205 test Flutter PASS
 (mode `--experimental-faster-testing` di sesi agent), build Linux release PASS,
 Go test/vet PASS, dan sintaks Info.plist PASS. Pengujian native iOS belum dijalankan.
 
@@ -92,7 +93,8 @@ sharing tanpa kebutuhan yang direview; konfigurasi ini memakai group default app
 Pada iPhone fisik, periksa:
 
 1. CRUD dalam airplane mode dan setelah app dibuka ulang.
-2. Tempel undangan dari listener IP LAN Fedora, tinjau identitas, kirim request,
+2. Pindai QR atau tempel undangan dari listener IP LAN Fedora, tinjau identitas,
+   kirim request,
    cocokkan request ID, lalu Izinkan di Fedora. `127.0.0.1` hanya cocok untuk
    review dua replica laptop, bukan undangan untuk iPhone.
 3. Tutup/buka app dan restart iPhone: profil dapat dibaca setelah unlock dan
@@ -104,5 +106,5 @@ Pada iPhone fisik, periksa:
 6. Cabut akses dari Fedora: request berikutnya ditolak, sementara CRUD tetap bisa.
 
 Catat versi iOS, perangkat, Xcode, dan hasil aktual tanpa token atau JSON profil.
-Scanner kamera masih tahap berikutnya; hasil native di atas belum boleh ditandai
-PASS berdasarkan pengujian Fedora.
+Uji izin kamera ditolak, diizinkan, app masuk background, dan tombol kembali.
+Hasil native di atas belum boleh ditandai PASS berdasarkan pengujian Fedora.

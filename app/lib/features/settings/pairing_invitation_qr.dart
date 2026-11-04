@@ -91,7 +91,7 @@ class _PairingInvitationQrState extends State<PairingInvitationQr> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Pemindai di aplikasi penerima belum tersedia. Gunakan Salin undangan untuk pairing saat ini.',
+              'Di iPhone, buka Hubungkan ke Fedora lalu pilih Pindai QR undangan. Salin undangan tetap tersedia sebagai cadangan.',
             ),
             if (moduleSize * ratio < 3)
               const Padding(

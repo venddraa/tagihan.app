@@ -1,9 +1,10 @@
 # QR undangan pairing
 
-QR undangan Fedora sudah diimplementasikan dengan `qr_flutter` 4.1.0 dan `qr`
-3.0.2 pada lockfile. Scanner kamera belum dibuat. Adapter Keychain disiapkan dan
-diuji dengan mock; widget/raster berjalan di Fedora, sementara native iPhone
-belum diuji. Lihat [adapter Keychain](ios-keychain.md).
+QR undangan Fedora memakai `qr_flutter` 4.1.0 dan `qr` 3.0.2. Penerima iPhone
+memakai `mobile_scanner` 7.4.2 dan tetap menyediakan tempel teks sebagai
+cadangan. Adapter Keychain dan scanner diuji dengan mock di Fedora; kamera,
+Keychain, dan build native iPhone belum diuji. Lihat [scanner iPhone](ios-qr-scanner.md)
+dan [adapter Keychain](ios-keychain.md).
 
 ## Generator lokal
 
@@ -24,8 +25,8 @@ belum diuji. Lihat [adapter Keychain](ios-keychain.md).
 
 Untuk review, QR hanya memuat undangan dummy atau undangan dari hub yang kamu
 kelola. Jangan unggah QR atau teks undangan aktif ke situs decoder QR.
-Scanner bawaan app iPhone belum tersedia; alur pairing yang sudah bisa dipakai
-tetap melalui tempel teks dan tinjauan identitas.
+Hasil scan masuk ke tinjauan identitas yang sama dengan tempel teks. Scan tidak
+membaca Keychain, membuka URL, atau mengirim permintaan pairing otomatis.
 
 ## Alur yang sudah siap
 
@@ -56,8 +57,8 @@ perlu diperiksa ulang saat SDK/dependency di-upgrade.
 tema, dan bentuk yang lebih luas. Kelebihannya fleksibel; kekurangannya API dan
 fitur visual tambahan belum diperlukan untuk undangan personal sederhana.
 
-Pilihan implementasi generator: A. Jangan menulis encoder QR sendiri. Pemilihan
-scanner iOS dilakukan terpisah. QR harus berisi tepat
+Pilihan implementasi generator: A. Jangan menulis encoder QR sendiri. Scanner
+iOS memakai `mobile_scanner` 7.4.2. QR harus berisi tepat
 teks `tagihan-pairing-v1:…` yang sudah ada, dengan kontras tinggi, quiet zone
 minimal empat modul, tanpa logo atau dekorasi. Tidak memakai layanan QR online.
 Hasil scan harus masuk tahap tinjauan yang sama, tanpa mengirim request otomatis.
@@ -94,9 +95,9 @@ memiliki jaringan. Hindari mencampurkan toolchain baru dengan engine lama.
 Pada Flutter 3.47.8 / Dart 3.13.7 di Fedora:
 
 - Analyzer Flutter: PASS.
-- Flutter test: 183 PASS, memakai mode `--experimental-faster-testing` di sesi
-  agent. Termasuk pemeriksaan raster QR pada lebar 264/432/720 logical pixel
-  dan device pixel ratio 1/1.5/2, payload matrix, kontras, serta quiet zone.
+- Flutter test: 205 PASS, memakai mode `--experimental-faster-testing` di sesi
+  agent. Termasuk pemeriksaan raster QR, platform kamera palsu, payload asing
+  atau ganda, lifecycle, izin ditolak, dan penghentian kamera sebelum hasil scan.
 - Build Linux release: PASS.
 - Go test dan vet: PASS; implementasi Go tidak berubah pada checkpoint QR.
 
@@ -104,7 +105,7 @@ Pengujian host juga membuka QR sebelum expiry, pembatalan, dan perpindahan
 lifecycle untuk memastikan gambar dihapus bersama undangannya. Review manual
 aplikasi desktop dan pemindaian kamera/perangkat fisik belum dicatat PASS.
 
-Review manual alur saat ini: [dua replica Fedora](api/pairing-client-review.md).
+Review manual alur teks: [dua replica Fedora](api/pairing-client-review.md).
 Keychain, permission kamera/Local Network, TLS native, dan scan iPhone tetap
-memerlukan persiapan tersendiri serta build/pengujian macOS/Xcode. Pengujian widget
-Fedora tidak membuktikan keberhasilan fitur native iPhone.
+memerlukan build/pengujian macOS/Xcode. Pengujian widget Fedora tidak membuktikan
+keberhasilan fitur native iPhone.

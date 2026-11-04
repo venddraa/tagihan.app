@@ -99,7 +99,8 @@ Panduan menjalankan versi ini dan menguji API ada di
   memeriksa pin serta masa berlaku sebelum memberikan socket kepada HttpClient,
   termasuk bila sertifikat lolos verifikasi CA biasa. Redirect/proxy tetap mati.
 - `crypto` 3.0.7 kini dependency langsung, memakai versi yang sebelumnya sudah
-  tersedia transitif. Tidak ada plugin kamera atau secure-storage baru.
+  tersedia transitif. Plugin kamera dan secure storage ditambahkan pada
+  checkpoint 18D, bukan pada checkpoint hub ini.
 
 Checkpoint berikutnya, 18C.2, memasang form penerima, penyimpanan pending/paired
 profile, retry/recovery, dan transport berpinned ke coordinator sync. Client harus
@@ -107,7 +108,7 @@ memverifikasi `/v1/pairing/identity` sebelum mempercayai hasil approval, termasu
 sesudah restart atau ketika credential dicabut sebelum client selesai pairing.
 Satu replica tidak boleh berpindah hub dengan membawa cursor lama.
 
-QR kamera, Keychain native, dan pengujian iPhone tetap 18D. Panduan review
+QR kamera, Keychain native, dan pengujian iPhone ditangani pada 18D. Panduan review
 checkpoint hub ada di [pengujian hub pairing](api/local-pairing.md).
 
 ## Alur yang diusulkan
@@ -232,8 +233,9 @@ Postman yang dibagikan. Credential admin Fedora tetap terpisah dari token sync.
 Dependency yang sudah dipilih:
 
 - Go: standard library untuk random, hash, TLS, dan HTTP; SQLite yang sudah ada.
-- Flutter: `flutter_secure_storage` 11.2.0 untuk Keychain, `crypto` untuk SHA-256 pin,
-  dan `qr_flutter` 4.1.0 untuk generator QR. Scanner kamera belum dipilih.
+- Flutter: `flutter_secure_storage` 11.2.0 untuk Keychain, `crypto` untuk SHA-256
+  pin, `qr_flutter` 4.1.0 untuk generator QR, dan `mobile_scanner` 7.4.2 untuk
+  scanner iPhone.
 
 ## Pembagian implementasi setelah desain disetujui
 
@@ -298,8 +300,9 @@ Tidak ada polling atau koneksi otomatis pada resume.
 Generator QR Fedora memakai `qr_flutter` 4.1.0, dengan payload undangan yang sama,
 warna hitam-putih, dan quiet zone empat modul. Tidak ada koneksi jaringan atau
 credential baru saat QR dibuka. QR mengikuti expiry dan lifecycle undangan.
-Scanner iOS belum dipasang. Adapter Keychain disiapkan dan diuji dengan mock di
-Fedora, sementara pairing native iPhone masih perlu diuji pada perangkat.
+Scanner iOS sudah dipasang dan diuji memakai platform kamera palsu di Fedora.
+Adapter Keychain juga diuji dengan mock, sementara pairing native iPhone masih
+perlu diuji pada perangkat.
 Detail dan batas pengujian ada di
 [QR undangan](pairing-qr.md).
 

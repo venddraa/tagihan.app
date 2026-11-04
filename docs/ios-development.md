@@ -3,9 +3,11 @@
 Target aplikasi tetap Flutter iOS. Development shared code dilakukan di Fedora;
 build dan pengujian native iOS memerlukan Mac dengan Xcode.
 
-Adapter credential Keychain dan deskripsi izin Local Network sudah disiapkan.
+Adapter credential Keychain, deskripsi izin Local Network, dan scanner QR sudah
+disiapkan.
 Pemilihan platform, kebijakan device-only, batas mock Fedora, dan checklist
-pengujian native dijelaskan di [adapter Keychain](ios-keychain.md).
+pengujian native dijelaskan di [adapter Keychain](ios-keychain.md) dan
+[scanner QR](ios-qr-scanner.md).
 
 ## Status Milestone 10
 
@@ -110,6 +112,9 @@ belum menjadi scope milestone ini. Detail resmi:
 - Tutup/buka aplikasi dan restart iPhone: data tetap tersimpan.
 - Aktifkan airplane mode: seluruh alur lokal di atas tetap berfungsi.
 - Archive tagihan: riwayat pembayaran tetap terbaca.
+- Tolak lalu izinkan akses kamera; scan undangan Fedora, uji background/resume,
+  tombol kembali, QR asing, dan fallback tempel teks. Pastikan scan hanya membuka
+  tinjauan dan belum mengirim request pairing.
 
 Catat versi iOS, perangkat, versi Xcode, command, dan hasil aktual. Jangan menandai
 build, persistence, atau offline iPhone PASS sebelum benar-benar diuji.

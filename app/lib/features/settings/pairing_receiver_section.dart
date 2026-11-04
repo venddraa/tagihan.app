@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/sync/pairing_admin_client.dart';
 import 'package:tagihan_vendra/data/sync/pairing_receiver.dart';
 import 'package:tagihan_vendra/data/sync/sync_http.dart';
+import 'package:tagihan_vendra/features/settings/pairing_scanner_page.dart';
 
 class PairingReceiverSection extends StatefulWidget {
   const PairingReceiverSection({
@@ -10,10 +13,12 @@ class PairingReceiverSection extends StatefulWidget {
     required this.receiver,
     required this.syncing,
     required this.onBusyChanged,
+    this.scanInvitation,
   });
   final PairingReceiver receiver;
   final bool syncing;
   final ValueChanged<bool> onBusyChanged;
+  final Future<String?> Function(BuildContext context)? scanInvitation;
 
   @override
   State<PairingReceiverSection> createState() => _PairingReceiverSectionState();
@@ -28,12 +33,16 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection>
   String? _reviewedCode;
   String? _message;
   bool _busy = false;
+  bool _scanning = false;
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
     _code.addListener(_invalidatePreview);
     WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
   }
 
   void _invalidatePreview() {
@@ -46,13 +55,52 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) return;
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) return;
     _code.clear();
     if (_preview != null) {
       setState(() {
         _preview = null;
         _reviewedCode = null;
       });
+    }
+  }
+
+  Future<void> _scan() async {
+    if (_busy || _scanning || widget.syncing || !_foreground) return;
+    _code.clear();
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _scanning = true;
+      _message = null;
+    });
+    widget.onBusyChanged(true);
+    String? code;
+    try {
+      code =
+          await (widget.scanInvitation?.call(context) ??
+              Navigator.of(context).push<String>(
+                MaterialPageRoute(builder: (_) => const PairingScannerPage()),
+              ));
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _message = 'Pemindai belum tersedia. Gunakan teks undangan.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _scanning = false);
+        widget.onBusyChanged(false);
+      }
+    }
+    if (!mounted || !_foreground || code == null) return;
+    try {
+      final invitation = PairingInvitation.fromCode(code);
+      _code.text = invitation.code;
+      _reviewInvitation();
+    } on FormatException {
+      setState(() => _message = 'QR bukan undangan Tagihan Vendra yang valid.');
     }
   }
 
@@ -169,7 +217,7 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection>
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
-    final disabled = _busy || widget.syncing;
+    final disabled = _busy || _scanning || widget.syncing;
     return Padding(
       padding: const EdgeInsets.only(top: 32),
       child: Column(
@@ -187,6 +235,15 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection>
           ),
           const SizedBox(height: 16),
           if (profile == null) ...[
+            if (Platform.isIOS || widget.scanInvitation != null) ...[
+              OutlinedButton.icon(
+                key: const ValueKey('scan-pairing-invitation'),
+                onPressed: disabled ? null : _scan,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Pindai QR undangan'),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               key: const ValueKey('pairing-device-name'),
               controller: _name,

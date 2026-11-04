@@ -5,6 +5,91 @@ import 'package:tagihan_vendra/features/settings/pairing_receiver_section.dart';
 import '../../data/sync/pairing_receiver_test.dart' show ReceiverFixture;
 
 void main() {
+  testWidgets(
+    'scan valid membuka tinjauan tanpa membaca keyring atau mengirim request',
+    (tester) async {
+      final fixture = ReceiverFixture();
+      addTearDown(fixture.database.close);
+      var scans = 0;
+      await _mount(
+        tester,
+        fixture,
+        scanInvitation: (_) async {
+          scans++;
+          return fixture.invitation.code;
+        },
+      );
+      final scan = find.byKey(const ValueKey('scan-pairing-invitation'));
+      await tester.ensureVisible(scan);
+      await tester.tap(scan);
+      await tester.pumpAndSettle();
+      expect(scans, 1);
+      expect(
+        find.byKey(const ValueKey('pairing-invitation-preview')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Alamat hub: ${fixture.invitation.endpoint}'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('submit-pairing-request')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(fixture.calls, isEmpty);
+      expect(fixture.credentials.reads, 0);
+      expect(fixture.credentials.values, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  for (final result in [null, 'https://foreign.example/secret']) {
+    testWidgets(
+      'scan batal/asing membuang draft lama tanpa membuka URL atau request: ${result == null ? 'cancel' : 'foreign'}',
+      (tester) async {
+        final fixture = ReceiverFixture();
+        addTearDown(fixture.database.close);
+        await _mount(tester, fixture, scanInvitation: (_) async => result);
+        final input = find.byKey(const ValueKey('pairing-invitation-input'));
+        await tester.enterText(input, fixture.invitation.code);
+        final review = find.byKey(const ValueKey('review-pairing-invitation'));
+        await tester.ensureVisible(review);
+        await tester.tap(review);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('pairing-invitation-preview')),
+          findsOneWidget,
+        );
+        final scan = find.byKey(const ValueKey('scan-pairing-invitation'));
+        await tester.ensureVisible(scan);
+        await tester.tap(scan);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(input).controller!.text, isEmpty);
+        expect(
+          find.byKey(const ValueKey('pairing-invitation-preview')),
+          findsNothing,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const ValueKey('submit-pairing-request')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(find.textContaining('foreign.example'), findsNothing);
+        expect(fixture.calls, isEmpty);
+        expect(fixture.credentials.reads, 0);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
+  }
   for (final size in [const Size(1200, 900), const Size(320, 700)]) {
     testWidgets('penerima undangan tersimpan dan pulih pada $size', (
       tester,
@@ -167,20 +252,24 @@ void main() {
   );
 }
 
-Future<void> _mount(WidgetTester tester, ReceiverFixture fixture) =>
-    tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: PairingReceiverSection(
-              receiver: fixture.receiver,
-              syncing: false,
-              onBusyChanged: (_) {},
-            ),
-          ),
+Future<void> _mount(
+  WidgetTester tester,
+  ReceiverFixture fixture, {
+  Future<String?> Function(BuildContext context)? scanInvitation,
+}) => tester.pumpWidget(
+  MaterialApp(
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: PairingReceiverSection(
+          receiver: fixture.receiver,
+          syncing: false,
+          onBusyChanged: (_) {},
+          scanInvitation: scanInvitation,
         ),
       ),
-    );
+    ),
+  ),
+);
 
 Future<void> _until(WidgetTester tester, bool Function() ready) async {
   for (var i = 0; i < 100; i++) {
