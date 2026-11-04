@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
+import 'package:tagihan_vendra/core/widgets/confirmation_dialog.dart';
 import 'package:tagihan_vendra/core/widgets/record_list_item.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
@@ -51,22 +52,12 @@ class BillListPage extends StatelessWidget {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Archive tagihan?'),
-        content: Text(
-          '${bill.name} akan disembunyikan dari daftar tagihan aktif.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            key: const ValueKey('confirm-archive-button'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Archive'),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        icon: Icons.archive_outlined,
+        title: 'Archive tagihan?',
+        message: '${bill.name} akan disembunyikan dari daftar tagihan aktif.',
+        confirmLabel: 'Archive',
+        confirmKey: const ValueKey('confirm-archive-button'),
       ),
     );
 

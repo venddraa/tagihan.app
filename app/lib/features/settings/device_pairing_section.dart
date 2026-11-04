@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/core/widgets/confirmation_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
@@ -143,21 +144,12 @@ class _DevicePairingSectionState extends State<DevicePairingSection>
   Future<bool> _confirm(String title, String message) async =>
       await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          scrollable: true,
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              key: const ValueKey('confirm-device-action'),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Lanjutkan'),
-            ),
-          ],
+        builder: (_) => ConfirmationDialog(
+          icon: Icons.phonelink_lock_outlined,
+          title: title,
+          message: message,
+          confirmLabel: 'Lanjutkan',
+          confirmKey: const ValueKey('confirm-device-action'),
         ),
       ) ??
       false;

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:tagihan_vendra/core/widgets/confirmation_dialog.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
 import 'package:tagihan_vendra/data/sync/pairing_admin_client.dart';
 import 'package:tagihan_vendra/data/sync/pairing_receiver.dart';
@@ -187,23 +188,13 @@ class _PairingReceiverSectionState extends State<PairingReceiverSection>
   Future<void> _cancel() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Batalkan pairing?'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'Hub harus dapat dihubungi untuk memastikan request belum diizinkan. Data tagihan lokal tetap tersimpan.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Kembali'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Batalkan pairing'),
-          ),
-        ],
+      builder: (_) => const ConfirmationDialog(
+        icon: Icons.link_off_outlined,
+        title: 'Batalkan pairing?',
+        message: 'Hub harus dapat dihubungi untuk memastikan request belum diizinkan. Data tagihan lokal tetap tersimpan.',
+        cancelLabel: 'Kembali',
+        confirmLabel: 'Batalkan pairing',
+        destructive: true,
       ),
     );
     if (confirmed != true || !mounted) return;

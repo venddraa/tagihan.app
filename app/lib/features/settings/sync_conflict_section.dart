@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tagihan_vendra/core/presentation_formatters.dart';
+import 'package:tagihan_vendra/core/widgets/confirmation_dialog.dart';
 import 'package:tagihan_vendra/data/local/app_database.dart';
 import 'package:tagihan_vendra/data/local/sync_operation.dart';
 import 'package:tagihan_vendra/domain/bill.dart';
@@ -44,26 +45,16 @@ class _SyncConflictSectionState extends State<SyncConflictSection> {
     final useLocal = resolution == SyncConflictResolution.keepLocal;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Selesaikan data berbeda?'),
-        content: Text(
-          useLocal
-              ? 'Data dari perangkat ini akan direbase di atas versi sync hub dan dikirim pada sync berikutnya.'
-              : 'Perubahan lokal yang berbenturan akan dibatalkan, lalu data dari sync hub digunakan.',
+      builder: (_) => ConfirmationDialog(
+        icon: Icons.compare_arrows_rounded,
+        title: 'Selesaikan data berbeda?',
+        message: useLocal
+            ? 'Data dari perangkat ini akan direbase di atas versi sync hub dan dikirim pada sync berikutnya.'
+            : 'Perubahan lokal yang berbenturan akan dibatalkan, lalu data dari sync hub digunakan.',
+        confirmLabel: 'Lanjutkan',
+        confirmKey: ValueKey(
+          useLocal ? 'confirm-keep-local' : 'confirm-use-remote',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            key: ValueKey(
-              useLocal ? 'confirm-keep-local' : 'confirm-use-remote',
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Lanjutkan'),
-          ),
-        ],
       ),
     );
     if (confirmed != true || !mounted) return;
