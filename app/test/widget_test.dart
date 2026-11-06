@@ -9,6 +9,7 @@ import 'package:tagihan_vendra/domain/calendar_date.dart';
 import 'package:tagihan_vendra/domain/entity_id.dart';
 import 'package:tagihan_vendra/domain/money.dart';
 import 'package:tagihan_vendra/domain/payment.dart';
+import 'package:tagihan_vendra/features/payments/payment_form_dialog.dart';
 
 void main() {
   late AppDatabase database;
@@ -142,6 +143,35 @@ void main() {
     expect(find.text('Belum ada tagihan'), findsOneWidget);
     final stored = await database.getActiveBills();
     expect(stored, isEmpty);
+
+    // Beralih ke tab Arsip
+    await tester.tap(find.text('Arsip'));
+    await tester.pumpAndSettle();
+    expect(find.text('Spotify Premium'), findsOneWidget);
+
+    // Buka detail tagihan arsip dan pulihkan
+    await tester.tap(find.text('Spotify Premium'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('unarchive-bill-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('unarchive-bill-button')));
+    await tester.pumpAndSettle();
+
+    // Kembali ke tab Aktif
+    await tester.tap(find.text('Aktif'));
+    await tester.pumpAndSettle();
+    expect(find.text('Spotify Premium'), findsOneWidget);
+    final restoredBills = await database.getActiveBills();
+    expect(restoredBills, hasLength(1));
+
+    // Uji tombol Bayar langsung dari detail dialog
+    await tester.tap(find.text('Spotify Premium'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pay-bill-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('pay-bill-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PaymentFormDialog), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Batal'));
+    await tester.pumpAndSettle();
 
     await _disposeApp(tester);
   });

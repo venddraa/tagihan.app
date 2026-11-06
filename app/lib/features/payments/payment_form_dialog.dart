@@ -14,10 +14,12 @@ class PaymentFormDialog extends StatefulWidget {
     super.key,
     required this.database,
     required this.bills,
+    this.initialBill,
   });
 
   final AppDatabase database;
   final List<Bill> bills;
+  final Bill? initialBill;
 
   @override
   State<PaymentFormDialog> createState() => _PaymentFormDialogState();
@@ -35,7 +37,10 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedBill = widget.bills.first;
+    _selectedBill = widget.initialBill != null &&
+            widget.bills.any((b) => b.id == widget.initialBill!.id)
+        ? widget.bills.firstWhere((b) => b.id == widget.initialBill!.id)
+        : (widget.initialBill ?? widget.bills.first);
     _dueDate = _selectedBill.nextDueDate;
     _paidAt = DateTime.now().toUtc();
     _amountController = TextEditingController(

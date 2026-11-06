@@ -365,6 +365,21 @@ final class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Stream<List<Bill>> watchArchivedBills() {
+    final query = select(bills)
+      ..where(
+        (table) => table.status.equals('archived') & table.deletedAtMs.isNull(),
+      )
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.updatedAtMs),
+        (table) => OrderingTerm.asc(table.name),
+      ]);
+
+    return query.watch().map(
+      (rows) => rows.map(_billFromRow).toList(growable: false),
+    );
+  }
+
   Future<List<Bill>> getOverdueBills(CalendarDate today) async {
     final activeBills = await getActiveBills();
     return activeBills
@@ -443,6 +458,49 @@ final class AppDatabase extends _$AppDatabase {
         baseVersion: current.version,
         payloadJson: encodeBillSnapshot(archived),
         createdAt: archivedAt,
+      );
+    });
+  }
+
+  Future<void> unarchiveBill(EntityId id, DateTime unarchivedAt) async {
+    if (!unarchivedAt.isUtc) {
+      throw ArgumentError.value(
+        unarchivedAt,
+        'unarchivedAt',
+        'Waktu unarchive harus menggunakan UTC.',
+      );
+    }
+
+    await transaction(() async {
+      final current = await findBillById(id);
+      if (current == null || current.isDeleted) {
+        throw StateError('Tagihan yang akan dipulihkan tidak ditemukan.');
+      }
+
+      final restored = Bill(
+        id: current.id,
+        name: current.name,
+        category: current.category,
+        amount: current.amount,
+        billingCycle: current.billingCycle,
+        nextDueDate: current.nextDueDate,
+        startDate: current.startDate,
+        status: BillStatus.active,
+        notes: current.notes,
+        createdAt: current.createdAt,
+        updatedAt: unarchivedAt,
+        deletedAt: current.deletedAt,
+        version: current.version + 1,
+      );
+
+      await _updateBillRow(restored);
+      await _enqueueOperation(
+        entityType: SyncEntityType.bill,
+        entityId: restored.id,
+        operationType: SyncOperationType.billUpdate,
+        baseVersion: current.version,
+        payloadJson: encodeBillSnapshot(restored),
+        createdAt: unarchivedAt,
       );
     });
   }
