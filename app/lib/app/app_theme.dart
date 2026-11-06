@@ -56,7 +56,10 @@ class AppTheme {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: dark ? _darkBackground : const Color(0xFFFFFBFB),
+      // surfaceContainerLowest memberikan latar yang sedikit lebih gelap/terang
+      // dari surface, sehingga content panel di atasnya terasa "naik".
+      scaffoldBackgroundColor:
+          dark ? _darkBackground : colorScheme.surfaceContainerLowest,
     );
 
     return base.copyWith(
@@ -140,6 +143,17 @@ class AppTheme {
         backgroundColor: colorScheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      cardTheme: CardThemeData(
+        color: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 1,
+        shadowColor: colorScheme.shadow.withAlpha(dark ? 60 : 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outlineVariant.withAlpha(80)),
+        ),
+        margin: EdgeInsets.zero,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

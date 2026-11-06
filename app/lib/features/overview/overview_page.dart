@@ -110,7 +110,7 @@ class _OverviewPageState extends State<OverviewPage>
             final payments = paymentsSnapshot.data!;
             return SingleChildScrollView(
               key: const ValueKey('overview-scroll'),
-              padding: EdgeInsets.all(widget.compact ? 24 : 40),
+              padding: EdgeInsets.all(widget.compact ? 20 : 36),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
@@ -127,9 +127,9 @@ class _OverviewPageState extends State<OverviewPage>
                         '${formatCalendarDate(today)} · ${overview.activeCount} tagihan aktif',
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
                       _CommitmentSummary(overview: overview),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final overdue = _BillSection(
@@ -153,7 +153,7 @@ class _OverviewPageState extends State<OverviewPage>
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 overdue,
-                                const SizedBox(height: 28),
+                                const SizedBox(height: 20),
                                 upcoming,
                               ],
                             );
@@ -162,28 +162,42 @@ class _OverviewPageState extends State<OverviewPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(child: overdue),
-                              const SizedBox(width: 36),
+                              const SizedBox(width: 20),
                               Expanded(child: upcoming),
                             ],
                           );
                         },
                       ),
-                      const SizedBox(height: 32),
-                      _SectionHeader(
-                        title: 'Pembayaran terbaru',
-                        onOpen: widget.onOpenPayments,
-                      ),
-                      if (payments.isEmpty)
-                        const _EmptyMessage('Belum ada pembayaran tercatat.')
-                      else
-                        for (final entry in payments.take(5))
-                          _SummaryRow(
-                            title: entry.billName,
-                            subtitle:
-                                'Dibayar ${formatDateTimeDate(entry.payment.paidAt)} · Periode ${formatCalendarDate(entry.payment.dueDate)}',
-                            amount: formatMoney(entry.payment.amount),
-                            onTap: widget.onOpenPayments,
+                      const SizedBox(height: 20),
+                      // Section pembayaran terbaru sebagai Card panel
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SectionHeader(
+                                title: 'Pembayaran terbaru',
+                                onOpen: widget.onOpenPayments,
+                              ),
+                              if (payments.isEmpty)
+                                const _EmptyMessage(
+                                  'Belum ada pembayaran tercatat.',
+                                )
+                              else
+                                for (final entry in payments.take(5))
+                                  _SummaryRow(
+                                    title: entry.billName,
+                                    subtitle:
+                                        'Dibayar ${formatDateTimeDate(entry.payment.paidAt)} · Periode ${formatCalendarDate(entry.payment.dueDate)}',
+                                    amount: formatMoney(entry.payment.amount),
+                                    onTap: widget.onOpenPayments,
+                                  ),
+                            ],
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -204,47 +218,65 @@ class _CommitmentSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    final colorScheme = theme.colorScheme;
+    return Card(
       key: const ValueKey('monthly-commitment'),
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(14),
-        color: theme.colorScheme.surfaceContainerLow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ESTIMASI KOMITMEN BULANAN',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.trending_up_rounded,
+                    size: 17,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'ESTIMASI KOMITMEN BULANAN',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          if (overview.monthlyCommitments.isEmpty)
-            Text(
-              'Rp0',
-              key: const ValueKey('monthly-commitment-amount'),
-              style: theme.textTheme.headlineMedium?.copyWith(fontSize: 36),
-            )
-          else
-            for (final amount in overview.monthlyCommitments)
+            const SizedBox(height: 16),
+            if (overview.monthlyCommitments.isEmpty)
               Text(
-                formatMoney(amount),
+                'Rp0',
                 key: const ValueKey('monthly-commitment-amount'),
                 style: theme.textTheme.headlineMedium?.copyWith(fontSize: 36),
+              )
+            else
+              for (final amount in overview.monthlyCommitments)
+                Text(
+                  formatMoney(amount),
+                  key: const ValueKey('monthly-commitment-amount'),
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 36),
+                ),
+            const SizedBox(height: 10),
+            Text(
+              'Rata-rata tagihan berulang aktif per bulan. Tagihan satu kali dan pembayaran historis tidak dihitung.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
-          const SizedBox(height: 10),
-          Text(
-            'Rata-rata tagihan berulang aktif per bulan. Tagihan satu kali dan pembayaran historis tidak dihitung.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -270,34 +302,59 @@ class _BillSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(
-          title: '$title (${bills.length})',
-          onOpen: onOpenBills,
-          color: overdue && bills.isNotEmpty ? theme.colorScheme.error : null,
-        ),
-        Text(description, style: theme.textTheme.bodySmall),
-        const SizedBox(height: 8),
-        if (bills.isEmpty)
-          _EmptyMessage(emptyText)
-        else ...[
-          for (final bill in bills.take(5))
-            _SummaryRow(
-              title: bill.name,
-              subtitle:
-                  '${formatCalendarDate(bill.nextDueDate)} · ${formatBillingCycle(bill.billingCycle)}',
-              amount: formatMoney(bill.amount),
-              onTap: onOpenBills,
+    final accentColor = overdue && bills.isNotEmpty
+        ? theme.colorScheme.error
+        : theme.colorScheme.primary;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Accent strip di atas card jika overdue
+          if (overdue && bills.isNotEmpty)
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
             ),
-          if (bills.length > 5)
-            Text(
-              'Menampilkan 5 dari ${bills.length} tagihan.',
-              style: theme.textTheme.bodySmall,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionHeader(
+                  title: '$title (${bills.length})',
+                  onOpen: onOpenBills,
+                  color: overdue && bills.isNotEmpty ? accentColor : null,
+                ),
+                Text(description, style: theme.textTheme.bodySmall),
+                const SizedBox(height: 4),
+                if (bills.isEmpty)
+                  _EmptyMessage(emptyText)
+                else ...[
+                  for (final bill in bills.take(5))
+                    _SummaryRow(
+                      title: bill.name,
+                      subtitle:
+                          '${formatCalendarDate(bill.nextDueDate)} · ${formatBillingCycle(bill.billingCycle)}',
+                      amount: formatMoney(bill.amount),
+                      onTap: onOpenBills,
+                    ),
+                  if (bills.length > 5)
+                    Text(
+                      'Menampilkan 5 dari ${bills.length} tagihan.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ],
             ),
+          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -342,60 +399,79 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final placeAmountBeside = constraints.maxWidth >= 380;
-          return Container(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 2),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        hoverColor: colorScheme.surfaceContainerHigh,
+        onTap: onTap,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final placeAmountBeside = constraints.maxWidth >= 380;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (placeAmountBeside) ...[
+                              const SizedBox(width: 16),
+                              Text(
+                                amount,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (!placeAmountBeside) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            amount,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ],
                     ),
-                    if (placeAmountBeside) ...[
-                      const SizedBox(width: 16),
-                      Text(
-                        amount,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ),
-                if (!placeAmountBeside) ...[
-                  const SizedBox(height: 7),
-                  Text(
-                    amount,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant.withAlpha(140),
                   ),
                 ],
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

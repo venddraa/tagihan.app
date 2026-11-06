@@ -84,7 +84,7 @@ class BillListPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Padding(
-      padding: EdgeInsets.all(compact ? 24 : 40),
+      padding: EdgeInsets.all(compact ? 20 : 36),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -117,7 +117,7 @@ class BillListPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               Expanded(
                 child: StreamBuilder<List<Bill>>(
                   stream: database.watchActiveBills(),
@@ -148,17 +148,25 @@ class BillListPage extends StatelessWidget {
                       );
                     }
 
-                    return ListView.separated(
-                      key: const ValueKey('bill-list'),
-                      itemCount: bills.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final bill = bills[index];
-                        return _BillListItem(
-                          bill: bill,
-                          onTap: () => _showDetails(context, bill),
-                        );
-                      },
+                    // Card sebagai container list — naik dari scaffold background
+                    return Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: ListView.separated(
+                        key: const ValueKey('bill-list'),
+                        itemCount: bills.length,
+                        separatorBuilder: (_, _) => Divider(
+                          height: 1,
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                        itemBuilder: (context, index) {
+                          final bill = bills[index];
+                          return _BillListItem(
+                            bill: bill,
+                            onTap: () => _showDetails(context, bill),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),

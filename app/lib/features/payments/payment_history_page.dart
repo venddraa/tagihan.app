@@ -52,7 +52,7 @@ class PaymentHistoryPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Padding(
-      padding: EdgeInsets.all(compact ? 24 : 40),
+      padding: EdgeInsets.all(compact ? 20 : 36),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -85,7 +85,7 @@ class PaymentHistoryPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               Expanded(
                 child: StreamBuilder<List<PaymentHistoryEntry>>(
                   stream: database.watchPaymentHistory(),
@@ -115,20 +115,27 @@ class PaymentHistoryPage extends StatelessWidget {
                       );
                     }
 
-                    return ListView.separated(
-                      key: const ValueKey('payment-list'),
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return _PaymentListItem(
-                          entry: entry,
-                          onTap: () => showDialog<void>(
-                            context: context,
-                            builder: (_) => _PaymentDetailsDialog(entry: entry),
-                          ),
-                        );
-                      },
+                    return Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: ListView.separated(
+                        key: const ValueKey('payment-list'),
+                        itemCount: entries.length,
+                        separatorBuilder: (_, _) => const Divider(
+                          height: 1,
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return _PaymentListItem(
+                            entry: entry,
+                            onTap: () => showDialog<void>(
+                              context: context,
+                              builder: (_) => _PaymentDetailsDialog(entry: entry),
+                            ),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),

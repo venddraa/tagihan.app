@@ -79,54 +79,58 @@ class _DesktopShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            SizedBox(
-              key: const ValueKey('desktop-header'),
-              width: double.infinity,
-              height: 72,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final showLabels = constraints.maxWidth >= 1040;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: _Brand(),
+            Material(
+              color: colorScheme.surface,
+              child: SizedBox(
+                key: const ValueKey('desktop-header'),
+                width: double.infinity,
+                height: 72,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showLabels = constraints.maxWidth >= 1040;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: _Brand(),
+                            ),
                           ),
-                        ),
-                        Row(
-                          key: const ValueKey('desktop-navigation'),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (
-                              var index = 0;
-                              index < destinations.length;
-                              index++
-                            )
-                              _TopNavigationItem(
-                                key: ValueKey('desktop-destination-$index'),
-                                label: destinations[index].label,
-                                icon: destinations[index].icon,
-                                showLabel: showLabels,
-                                selected: selectedIndex == index,
-                                onTap: () => onDestinationSelected(index),
-                              ),
-                          ],
-                        ),
-                        const Expanded(child: SizedBox()),
-                      ],
-                    ),
-                  );
-                },
+                          Row(
+                            key: const ValueKey('desktop-navigation'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (
+                                var index = 0;
+                                index < destinations.length;
+                                index++
+                              )
+                                _TopNavigationItem(
+                                  key: ValueKey('desktop-destination-$index'),
+                                  label: destinations[index].label,
+                                  icon: destinations[index].icon,
+                                  showLabel: showLabels,
+                                  selected: selectedIndex == index,
+                                  onTap: () => onDestinationSelected(index),
+                                ),
+                            ],
+                          ),
+                          const Expanded(child: SizedBox()),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: colorScheme.outlineVariant),
             Expanded(
               child: _DestinationContent(
                 database: database,

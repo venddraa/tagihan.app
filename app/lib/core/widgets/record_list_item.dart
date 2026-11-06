@@ -39,7 +39,7 @@ class RecordListItem extends StatelessWidget {
             hoverColor: colorScheme.surfaceContainerHigh,
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 17),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   leading,

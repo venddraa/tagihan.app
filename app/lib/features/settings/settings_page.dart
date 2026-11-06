@@ -68,7 +68,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final theme = Theme.of(context);
     return SingleChildScrollView(
       key: const ValueKey('settings-scroll'),
-      padding: EdgeInsets.all(widget.compact ? 24 : 40),
+      padding: EdgeInsets.all(widget.compact ? 20 : 36),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -175,17 +175,13 @@ class _SyncStatusPanel extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       label: '${presentation.label}. ${status.message}',
-      child: Container(
+      child: Card(
         key: const ValueKey('sync-status-panel'),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -284,7 +280,8 @@ class _SyncStatusPanel extends StatelessWidget {
                 );
               },
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
